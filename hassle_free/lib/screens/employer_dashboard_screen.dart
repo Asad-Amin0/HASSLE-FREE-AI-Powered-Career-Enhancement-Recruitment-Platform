@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/job_service.dart';
-import '../services/resume_service.dart';
 import '../widgets/resume_thematic_viewer.dart';
 import 'post_job_screen.dart';
 
@@ -8,15 +7,26 @@ class EmployerDashboardScreen extends StatelessWidget {
   const EmployerDashboardScreen({super.key});
 
   void _showPostJobDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.all(16),
-        child: PostJobScreen(),
-      ),
-    );
+    bool isMobile = MediaQuery.of(context).size.width < 1100;
+    
+    if (isMobile) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (context) => const PostJobScreen(),
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.all(16),
+          child: PostJobScreen(),
+        ),
+      );
+    }
   }
 
   @override
@@ -25,7 +35,11 @@ class EmployerDashboardScreen extends StatelessWidget {
     final jobService = JobService();
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16 : 32),
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 20 : 32,
+        vertical: isMobile ? 28 : 40,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -72,7 +86,7 @@ class EmployerDashboardScreen extends StatelessWidget {
           
           const SizedBox(height: 32),
           const Text(
-            'Top Candidate Recommendations',
+            'Your Top Applicants',
             style: TextStyle(
               fontSize: 24, 
               fontWeight: FontWeight.bold, 
@@ -91,14 +105,15 @@ class EmployerDashboardScreen extends StatelessWidget {
                   .toList();
 
               return StreamBuilder<List<Map<String, dynamic>>>(
-                stream: ResumeService().getAllCandidatesStream(),
-                builder: (context, resumeSnapshot) {
-                  final allCandidates = resumeSnapshot.data ?? [];
+                stream: jobService.getEmployerAllApplicantsStream(),
+                builder: (context, applicantSnapshot) {
+                  final allApplicants = applicantSnapshot.data ?? [];
                   
-                  // Filter out people who already applied (optional, but requested as 'suggest')
-                  // For now, let's just use matching logic
-                  List<Map<String, dynamic>> matchedCandidates = allCandidates.map((c) {
-                    final skills = List<String>.from(c['skills'] ?? []);
+                  // Matching logic: compare applicant skills with job requirements
+                  List<Map<String, dynamic>> matchedCandidates = allApplicants.map((a) {
+                    final resumeData = a['resumeData'] ?? {};
+                    final skills = List<String>.from(resumeData['skills'] ?? []);
+                    
                     int matches = 0;
                     for (var s in skills) {
                       if (employerSkills.any((es) => es.toLowerCase() == s.toLowerCase())) {
@@ -106,11 +121,18 @@ class EmployerDashboardScreen extends StatelessWidget {
                       }
                     }
                     double score = skills.isEmpty ? 0 : (matches / employerSkills.length.clamp(1, 100)) * 100;
-                    return {...c, 'matchScore': score.toStringAsFixed(0)};
+                    
+                    return {
+                      ...a, 
+                      'name': a['seekerName'],
+                      'jobTitle': a['jobTitle'] ?? 'Unknown Position',
+                      'category': resumeData['category'] ?? 'Professional',
+                      'skills': skills,
+                      'matchScore': score.toStringAsFixed(0)
+                    };
                   }).toList();
 
                   matchedCandidates.sort((a, b) => double.parse(b['matchScore']).compareTo(double.parse(a['matchScore'])));
-                  matchedCandidates = matchedCandidates.where((c) => double.parse(c['matchScore']) > 0).toList();
 
                   if (matchedCandidates.isEmpty) {
                     return Container(
@@ -119,7 +141,7 @@ class EmployerDashboardScreen extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(24),
                       ),
-                      child: const Center(child: Text('No recommendations yet', style: TextStyle(color: Colors.white60))),
+                      child: const Center(child: Text('No applicants yet', style: TextStyle(color: Colors.white60))),
                     );
                   }
                   return _buildCandidateTable(context, isMobile, matchedCandidates);
@@ -148,16 +170,6 @@ class EmployerDashboardScreen extends StatelessWidget {
           Text('No job postings yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.8))),
           const SizedBox(height: 8),
           Text('Post your first job to start receiving candidates', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => _showPostJobDialog(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Post a Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
         ],
       ),
     );
@@ -403,6 +415,106 @@ class EmployerDashboardScreen extends StatelessWidget {
   }
 
   Widget _buildCandidateTable(BuildContext context, bool isMobile, List<Map<String, dynamic>> candidates) {
+    if (isMobile) {
+      return Column(
+        children: candidates.take(5).map((c) {
+          final skills = List<String>.from(c['skills'] ?? []);
+          final score = '${c['matchScore']}%';
+          final name = c['name'] ?? 'Candidate';
+          final role = c['jobTitle'] ?? 'N/A';
+          return Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundImage: NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=$name'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                          Text('Applied for: $role', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(score, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: skills.take(4).map((s) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(s, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                  )).toList(),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final applicantFormat = {
+                        'seekerName': c['seekerName'] ?? name,
+                        'seekerEmail': c['seekerEmail'] ?? 'Contact information hidden',
+                        'resumeData': c['resumeData'] ?? {},
+                      };
+                      showDialog(
+                        context: context,
+                        builder: (context) => ResumeThematicViewer(
+                          applicant: applicantFormat,
+                          theme: 'Modern',
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                      foregroundColor: const Color(0xFF818CF8),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: const Text('View Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    // Web – full DataTable
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -410,33 +522,40 @@ class EmployerDashboardScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columnSpacing: 40,
-          horizontalMargin: 24,
-          headingRowHeight: 64,
-          dataRowMinHeight: 72,
-          dataRowMaxHeight: 72,
-          columns: [
-            _buildTableHeader('Candidate Name'),
-            _buildTableHeader('Category'),
-            _buildTableHeader('Skills'),
-            _buildTableHeader('Match'),
-            _buildTableHeader('Action'),
-          ],
-          rows: candidates.take(5).map((c) {
-            final skills = List<String>.from(c['skills'] ?? []);
-            return _buildCandidateRow(
-              context,
-              c['name'] ?? 'Candidate',
-              c['category'] ?? 'Professional',
-              skills,
-              '${c['matchScore']}%',
-              c, // Pass full candidate data for resume viewer
-            );
-          }).toList(),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: DataTable(
+                columnSpacing: 40,
+                horizontalMargin: 24,
+                headingRowHeight: 64,
+                dataRowMinHeight: 76,
+                dataRowMaxHeight: 76,
+                columns: [
+                  _buildTableHeader('Candidate Name'),
+                  _buildTableHeader('Applied For'),
+                  _buildTableHeader('Skills'),
+                  _buildTableHeader('Match'),
+                  _buildTableHeader('Action'),
+                ],
+                rows: candidates.take(5).map((c) {
+                  final skills = List<String>.from(c['skills'] ?? []);
+                  return _buildCandidateRow(
+                    context,
+                    c['name'] ?? 'Candidate',
+                    c['jobTitle'] ?? 'N/A',
+                    skills,
+                    '${c['matchScore']}%',
+                    c,
+                  );
+                }).toList(),
+              ),
+            ),
+          );
+        }
       ),
     );
   }
@@ -446,15 +565,15 @@ class EmployerDashboardScreen extends StatelessWidget {
       label: Text(
         label,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.5),
+          color: Colors.white.withValues(alpha: 0.6),
           fontWeight: FontWeight.w600,
-          fontSize: 13,
+          fontSize: 15,
         ),
       ),
     );
   }
 
-  DataRow _buildCandidateRow(BuildContext context, String name, String role, List<String> skills, String score, Map<String, dynamic> resumeData) {
+  DataRow _buildCandidateRow(BuildContext context, String name, String role, List<String> skills, String score, Map<String, dynamic> candidate) {
     return DataRow(
       cells: [
         DataCell(Row(
@@ -466,15 +585,15 @@ class EmployerDashboardScreen extends StatelessWidget {
                 gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
               ),
               child: CircleAvatar(
-                radius: 16,
+                radius: 18,
                 backgroundImage: NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=$name'),
               ),
             ),
-            const SizedBox(width: 12),
-            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(width: 14),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
           ],
         )),
-        DataCell(Text(role, style: TextStyle(color: Colors.white.withValues(alpha: 0.8)))),
+        DataCell(Text(role, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 15))),
         DataCell(Row(
           children: skills.take(3).map((s) => Container(
             margin: const EdgeInsets.only(right: 6),
@@ -499,11 +618,11 @@ class EmployerDashboardScreen extends StatelessWidget {
         )),
         DataCell(TextButton(
           onPressed: () {
-            // Mold the resume data into the format Expected by ResumeThematicViewer
+            // Correctly pass the nested resumeData instead of the entire document as resumeData
             final applicantFormat = {
-              'seekerName': name,
-              'seekerEmail': 'Contact information hidden until hired',
-              'resumeData': resumeData,
+              'seekerName': candidate['seekerName'] ?? name,
+              'seekerEmail': candidate['seekerEmail'] ?? 'Contact information hidden',
+              'resumeData': candidate['resumeData'] ?? {},
             };
             
             showDialog(

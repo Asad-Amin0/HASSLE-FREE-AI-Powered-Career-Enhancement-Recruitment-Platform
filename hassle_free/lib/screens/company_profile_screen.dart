@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/company_service.dart';
+import '../services/auth_service.dart';
+import 'login_screen.dart';
 
 class CompanyProfileScreen extends StatefulWidget {
   const CompanyProfileScreen({super.key});
@@ -115,26 +117,53 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
             ),
           ],
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            if (_isEditing) {
-              _saveProfile();
-            } else {
-              setState(() => _isEditing = true);
-            }
-          },
-          icon: _isLoading 
-            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : Icon(_isEditing ? Icons.save : Icons.edit, color: Colors.white, size: 20),
-          label: Text(_isEditing ? 'Save Profile' : 'Edit Profile', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _isEditing ? Colors.green : const Color(0xFF6366F1),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        Row(
+          children: [
+            ElevatedButton.icon(
+              onPressed: () {
+                if (_isEditing) {
+                  _saveProfile();
+                } else {
+                  setState(() => _isEditing = true);
+                }
+              },
+              icon: _isLoading 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Icon(_isEditing ? Icons.save : Icons.edit, color: Colors.white, size: 20),
+              label: Text(_isEditing ? 'Save Profile' : 'Edit Profile', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isEditing ? Colors.green : const Color(0xFF6366F1),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              onPressed: () => _handleLogout(context),
+              icon: const Icon(Icons.logout, size: 20),
+              label: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  void _handleLogout(BuildContext context) async {
+    await AuthService().signOut();
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
   }
 
   Widget _buildProfileContent(Map<String, dynamic> profile, bool isMobile) {

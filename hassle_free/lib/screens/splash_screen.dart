@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'onboarding_screen.dart';
+import 'dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,7 +15,18 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
+      if (!mounted) return;
+      
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // User is already logged in. Navigate to Dashboard.
+        // We default to Job Seeker role since role is not persisted globally.
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainDashboardScreen(isJobSeeker: true)),
+        );
+      } else {
+        // Not logged in.
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),

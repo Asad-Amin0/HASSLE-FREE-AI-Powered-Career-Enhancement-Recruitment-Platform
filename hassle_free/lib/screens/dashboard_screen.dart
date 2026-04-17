@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'resume_screen.dart';
 import 'employer_dashboard_screen.dart';
 import 'employer_jobs_screen.dart';
@@ -8,6 +9,7 @@ import 'profile_screen.dart';
 import 'interview_screen.dart';
 import 'company_profile_screen.dart';
 import '../services/resume_service.dart';
+import '../services/job_service.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   final bool isJobSeeker;
@@ -21,9 +23,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   late bool _isJobSeeker;
-  String _userName = ""; // Removed "Sarah" as default
+  String _userName = "";
   late AnimationController _bgAnimationController;
   StreamSubscription? _resumeSubscription;
+  StreamSubscription? _jobSubscription;
+  List<Map<String, dynamic>> _matchedJobs = [];
+  List<String> _userSkills = [];
+  bool _showNotifications = false;
 
   @override
   void initState() {
@@ -34,6 +40,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
       duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
     _subscribeToUserData();
+    if (_isJobSeeker) _subscribeToJobRecommendations();
   }
 
   void _subscribeToUserData() {
@@ -43,7 +50,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
           if (mounted) {
             setState(() {
               _userName = data['name'];
+              _userSkills = List<String>.from(data['skills'] ?? []);
             });
+            // Re-subscribe job recommendations when skills update
+            _subscribeToJobRecommendations();
           }
         }
       },
@@ -53,10 +63,24 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
     );
   }
 
+  void _subscribeToJobRecommendations() {
+    _jobSubscription?.cancel();
+    _jobSubscription = JobService().getAllJobsStream().listen((jobs) {
+      if (!mounted) return;
+      final matched = jobs.where((job) {
+        final jobSkills = List<String>.from(job['requiredSkills'] ?? []);
+        return jobSkills.any((s) =>
+          _userSkills.any((us) => us.toLowerCase().contains(s.toLowerCase()) || s.toLowerCase().contains(us.toLowerCase())));
+      }).toList();
+      setState(() => _matchedJobs = matched);
+    });
+  }
+
   @override
   void dispose() {
     _bgAnimationController.dispose();
     _resumeSubscription?.cancel();
+    _jobSubscription?.cancel();
     super.dispose();
   }
 
@@ -229,14 +253,22 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
         return Stack(
           children: [
             _buildLiveBackground(),
-            SingleChildScrollView(child: _buildDashboardContent()),
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: JobService().getMyApplicationsFullStream(),
+              builder: (context, snapshot) {
+                final applications = snapshot.data ?? [];
+                return SingleChildScrollView(child: _buildDashboardContent(applications));
+              },
+            ),
           ],
         );
     }
   }
 
-  Widget _buildDashboardContent() {
+  Widget _buildDashboardContent(List<Map<String, dynamic>> applications) {
     bool isMobile = MediaQuery.of(context).size.width < 1100;
+    int approvedCount = applications.where((a) => a['status'] == 'approved').length;
+    
     return Padding(
       padding: EdgeInsets.all(isMobile ? 16 : 32),
       child: Column(
@@ -247,23 +279,54 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.white.withValues(alpha: 0.1),
-                    child: const Icon(
-                      Icons.notifications_none,
-                      color: Colors.white,
-                    ),
+                  // Notification Bell with badge
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      GestureDetector(
+                        onTap: () => setState(() => _showNotifications = !_showNotifications),
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white.withValues(alpha: 0.1),
+                          child: const Icon(Icons.notifications_none, color: Colors.white),
+                        ),
+                      ),
+                      if (_matchedJobs.isNotEmpty)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF6366F1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${_matchedJobs.length > 9 ? "9+" : _matchedJobs.length}',
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(width: 16),
-                  CircleAvatar(
-                    backgroundImage: NetworkImage(
-                      'https://api.dicebear.com/7.x/avataaars/png?seed=${_userName.isEmpty ? "default" : _userName}',
+                  // Profile avatar → tapping opens ProfileScreen
+                  GestureDetector(
+                    onTap: () => setState(() => _selectedIndex = _isJobSeeker ? 4 : _selectedIndex),
+                    child: CircleAvatar(
+                      backgroundImage: NetworkImage(
+                        'https://api.dicebear.com/7.x/avataaars/png?seed=${_userName.isEmpty ? "default" : _userName}',
+                      ),
                     ),
                   ),
                 ],
               ),
             ],
           ),
+          // Inline notification panel
+          if (_showNotifications && _isJobSeeker) ...[
+            const SizedBox(height: 16),
+            _buildNotificationPanel(),
+          ],
           const SizedBox(height: 32),
           Container(
             width: double.infinity,
@@ -373,7 +436,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildBannerStat('24', 'Applications'),
+                      _buildBannerStat(applications.length.toString(), 'Applications'),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6366F1),
@@ -408,6 +471,27 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
             ),
           ),
           const SizedBox(height: 32),
+          if (applications.isNotEmpty) ...[
+            const Text(
+              'Application Status',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: applications.length.clamp(0, 3),
+              itemBuilder: (context, index) {
+                final app = applications[index];
+                return _buildApplicationStatusCard(app);
+              },
+            ),
+            const SizedBox(height: 32),
+          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -429,22 +513,32 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 100,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _buildCompactJobCard(
-                  'Senior UI Designer',
-                  'Creative Inc',
-                  'Remote',
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: JobService().getAllActiveJobsStream(),
+            builder: (context, snapshot) {
+              final jobs = snapshot.data ?? [];
+              if (jobs.isEmpty) {
+                return const Text('No recommended jobs yet', style: TextStyle(color: Colors.white60));
+              }
+              return SizedBox(
+                height: 120,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: jobs.length.clamp(0, 5),
+                  itemBuilder: (context, index) {
+                    final job = jobs[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: _buildCompactJobCard(
+                        job['title'] ?? 'Job Title',
+                        job['company'] ?? 'Company',
+                        job['location'] ?? 'Remote',
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(width: 16),
-                _buildCompactJobCard('Full Stack Dev', 'TechFlow', 'USA'),
-                const SizedBox(width: 16),
-                _buildCompactJobCard('Product Lead', 'Innova', 'London'),
-              ],
-            ),
+              );
+            },
           ),
           const SizedBox(height: 32),
           const Text(
@@ -466,20 +560,257 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
             children: [
               _buildStatCard(
                 'Applications',
-                '24',
+                applications.length.toString(),
                 Icons.business_center,
                 const Color(0xFF3B82F6),
-                '+12% this week',
+                applications.isNotEmpty ? "Tracking" : "None yet",
               ),
               _buildStatCard(
-                'Offers',
-                '1',
+                'Offers / Approved',
+                approvedCount.toString(),
                 Icons.check_circle_outline,
                 const Color(0xFF22C55E),
-                'New!',
+                approvedCount > 0 ? 'Congratulations!' : 'Keep going!',
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApplicationStatusCard(Map<String, dynamic> app) {
+    String status = app['status'] ?? 'pending';
+    Color statusColor = _getStatusColor(status);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              status == 'approved' ? Icons.check_circle : status == 'rejected' ? Icons.cancel : Icons.access_time_filled,
+              color: statusColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  app['jobTitle'] ?? 'Job Title',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Applied on ${_formatTimestamp(app['appliedAt'])}',
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              status.toUpperCase(),
+              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'unknown date';
+    final DateTime date = (timestamp as Timestamp).toDate();
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'top listed':
+        return Colors.blue;
+      case 'rejected':
+        return Colors.red;
+      case 'pending':
+      default:
+        return Colors.orange;
+    }
+  }
+
+  Widget _buildNotificationPanel() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 16),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Jobs Matching Your Skills',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  onPressed: () => setState(() => _showNotifications = false),
+                ),
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          // Job list
+          if (_matchedJobs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'No matching jobs yet.\nUpload your resume to get personalized recommendations!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54, fontSize: 14),
+                ),
+              ),
+            )
+          else
+            ...(_matchedJobs.take(5).map((job) {
+              final skills = List<String>.from(job['requiredSkills'] ?? []);
+              final matchCount = skills.where((s) =>
+                _userSkills.any((us) => us.toLowerCase().contains(s.toLowerCase()) || s.toLowerCase().contains(us.toLowerCase()))
+              ).length;
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _showNotifications = false;
+                    _selectedIndex = 1; // Navigate to Jobs tab
+                  });
+                },
+                borderRadius: BorderRadius.circular(0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.business_center, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              job['title'] ?? 'Job Title',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${job['company'] ?? ''} • ${job['location'] ?? ''}',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$matchCount match${matchCount == 1 ? '' : 'es'}',
+                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            job['salaryRange'] ?? '',
+                            style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList()),
+          // Footer
+          if (_matchedJobs.length > 5)
+            InkWell(
+              onTap: () => setState(() { _showNotifications = false; _selectedIndex = 1; }),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20))),
+                child: Text(
+                  'View all ${_matchedJobs.length} matching jobs →',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -747,8 +1078,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
 
   Widget _buildCompactJobCard(String title, String company, String location) {
     return Container(
-      width: 200,
-      padding: const EdgeInsets.all(16),
+      width: 220,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
@@ -756,13 +1087,12 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             title,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: 16,
               color: Colors.white,
             ),
             maxLines: 1,
@@ -771,20 +1101,26 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
           const SizedBox(height: 4),
           Text(
             company,
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
+            style: const TextStyle(color: Colors.white60, fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const Spacer(),
           Row(
             children: [
               const Icon(
                 Icons.location_on_outlined,
-                size: 12,
-                color: Colors.white60,
+                size: 14,
+                color: Color(0xFF6366F1),
               ),
-              const SizedBox(width: 4),
-              Text(
-                location,
-                style: const TextStyle(color: Colors.white60, fontSize: 10),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  location,
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),

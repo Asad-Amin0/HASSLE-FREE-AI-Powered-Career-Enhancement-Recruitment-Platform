@@ -101,6 +101,9 @@ class JobService {
         });
   }
 
+  // ─── Alias used by dashboard notification system ──────────────────────────
+  Stream<List<Map<String, dynamic>>> getAllJobsStream() => getAllActiveJobsStream();
+
   // ─── Get employer stats ───────────────────────────────────────────────────
   Stream<Map<String, int>> getEmployerStatsStream() {
     final user = _auth.currentUser;
@@ -119,10 +122,12 @@ class JobService {
       int activeJobs = 0;
       int totalApplicants = 0;
 
-      for (final doc in snapshot.docs) {
+      for (var doc in snapshot.docs) {
         final data = doc.data();
-        if (data['status'] == 'active') activeJobs++;
-        totalApplicants += (data['applicants'] as int?) ?? 0;
+        if (data['status'] == 'active') {
+          activeJobs++;
+        }
+        totalApplicants += (data['applicants'] as num? ?? 0).toInt();
       }
 
       return {
@@ -132,11 +137,11 @@ class JobService {
     });
   }
 
-  // ─── Delete a job posting ─────────────────────────────────────────────────
+  // ─── Delete a job posting ──────────────────────────────────────────────────
   Future<bool> deleteJob(String jobId) async {
     try {
       await _db.collection('jobs').doc(jobId).delete();
-      debugPrint('Job deleted: $jobId');
+      debugPrint('Job deleted successfully: $jobId');
       return true;
     } catch (e) {
       debugPrint('Error deleting job: $e');
@@ -229,7 +234,7 @@ class JobService {
     });
   }
 
-  // ─── Get my applications (for job seekers) ────────────────────────────────
+  // ─── Get my applied job IDs (for UI buttons) ─────────────────────────────
   Stream<List<String>> getMyApplicationsStream() {
     final user = _auth.currentUser;
     if (user == null) return Stream.value([]);
@@ -241,6 +246,62 @@ class JobService {
         .map((snapshot) {
       return snapshot.docs.map((doc) => doc.data()['jobId'] as String).toList();
     });
+  }
+
+  // ─── Get my full application details (for job seekers) ─────────────────────
+  Stream<List<Map<String, dynamic>>> getMyApplicationsFullStream() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    return _db
+        .collection('applications')
+        .where('seekerId', isEqualTo: user.uid)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      List<Map<String, dynamic>> appsWithJobData = [];
+      
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        
+        // Fetch the latest job title if missing or to ensure it's up to date
+        try {
+          final jobDoc = await _db.collection('jobs').doc(data['jobId']).get();
+          if (jobDoc.exists) {
+            data['jobTitle'] = jobDoc.data()?['title'] ?? data['jobTitle'] ?? 'Unknown Position';
+            data['company'] = jobDoc.data()?['company'] ?? 'Unknown Company';
+          }
+        } catch (e) {
+          debugPrint('Error fetching job details for application: $e');
+        }
+        
+        appsWithJobData.add(data);
+      }
+      
+      // Sort by appliedAt descending
+      appsWithJobData.sort((a, b) {
+        final aTime = (a['appliedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final bTime = (b['appliedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+        return bTime.compareTo(aTime);
+      });
+      
+      return appsWithJobData;
+    });
+  }
+
+  // ─── Update application status (for employers) ─────────────────────────────
+  Future<bool> updateApplicationStatus(String applicationId, String status) async {
+    try {
+      await _db.collection('applications').doc(applicationId).update({
+        'status': status,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('Application $applicationId status updated to $status');
+      return true;
+    } catch (e) {
+      debugPrint('Error updating application status: $e');
+      return false;
+    }
   }
 
   // ─── Get all applicants for any job posted by this employer ───────────────

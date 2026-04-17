@@ -6,16 +6,65 @@ import '../widgets/resume_thematic_viewer.dart';
 class EmployerJobsScreen extends StatelessWidget {
   const EmployerJobsScreen({super.key});
 
-  void _showPostJobDialog(BuildContext context) {
-    showDialog(
+  void _deleteJob(BuildContext context, String jobId) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.all(16),
-        child: PostJobScreen(),
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('Delete Job Posting', style: TextStyle(color: Colors.white)),
+        content: const Text('Are you sure you want to delete this job posting? This action cannot be undone.', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
+
+    if (confirmed == true) {
+      final success = await JobService().deleteJob(jobId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Job deleted successfully' : 'Failed to delete job'),
+            backgroundColor: success ? Colors.green : Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  void _editJob(BuildContext context, Map<String, dynamic>? job) {
+    bool isMobile = MediaQuery.of(context).size.width < 1100;
+    
+    if (isMobile) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (context) => PostJobScreen(job: job),
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(16),
+          child: PostJobScreen(job: job),
+        ),
+      );
+    }
+  }
+
+  void _showPostJobDialog(BuildContext context) {
+    _editJob(context, null);
   }
 
   @override
@@ -24,12 +73,44 @@ class EmployerJobsScreen extends StatelessWidget {
     final jobService = JobService();
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16 : 32),
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 32,
+        vertical: isMobile ? 24 : 40,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          if (isMobile) ...[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your Job Postings',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.5),
+                ),
+                const SizedBox(height: 4),
+                Text('View and manage all active job listings', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14)),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showPostJobDialog(context),
+                    icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                    label: const Text('Post Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Column(
@@ -64,6 +145,7 @@ class EmployerJobsScreen extends StatelessWidget {
               ),
             ],
           ),
+          ],
           const SizedBox(height: 32),
           
           StreamBuilder<List<Map<String, dynamic>>>(
@@ -118,30 +200,14 @@ class EmployerJobsScreen extends StatelessWidget {
             'Create your first job listing to start attracting top talent.', 
             style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 16)
           ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () => _showPostJobDialog(context),
-            icon: const Icon(Icons.add, color: Colors.white),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            label: const Text('Post a New Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildMobileJobsList(BuildContext context, List<Map<String, dynamic>> jobs) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: jobs.length,
-      itemBuilder: (context, index) {
-        return _buildJobCard(context, jobs[index]);
-      },
+    return Column(
+      children: jobs.map((job) => _buildJobCard(context, job, isWebGrid: false)).toList(),
     );
   }
 
@@ -157,21 +223,28 @@ class EmployerJobsScreen extends StatelessWidget {
       ),
       itemCount: jobs.length,
       itemBuilder: (context, index) {
-        return _buildJobCard(context, jobs[index]);
+        return _buildJobCard(context, jobs[index], isWebGrid: true);
       },
     );
   }
 
-  Widget _buildJobCard(BuildContext context, Map<String, dynamic> job) {
+  Widget _buildJobCard(BuildContext context, Map<String, dynamic> job, {bool isWebGrid = false}) {
     final skills = List<String>.from(job['requiredSkills'] ?? []);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,20 +272,35 @@ class EmployerJobsScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: job['status'] == 'active' ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  (job['status']?.toString() ?? 'active').toUpperCase(),
-                  style: TextStyle(
-                    color: job['status'] == 'active' ? Colors.green : Colors.orange,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: job['status'] == 'active' ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      (job['status']?.toString() ?? 'active').toUpperCase(),
+                      style: TextStyle(
+                        color: job['status'] == 'active' ? Colors.green : Colors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () => _editJob(context, job),
+                    icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 20),
+                    tooltip: 'Edit Job',
+                  ),
+                  IconButton(
+                    onPressed: () => _deleteJob(context, job['id']),
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    tooltip: 'Delete Job',
+                  ),
+                ],
               )
             ],
           ),
@@ -239,7 +327,7 @@ class EmployerJobsScreen extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
           ),
-          const Spacer(),
+          isWebGrid ? const Spacer() : const SizedBox(height: 16),
           Row(
             children: [
               ...skills.take(3).map((s) => Container(
@@ -366,13 +454,29 @@ class EmployerJobsScreen extends StatelessWidget {
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: const Text('New', style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(applicant['status'] ?? 'pending').withValues(alpha: 0.1), 
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  (applicant['status'] ?? 'pending').toString().toUpperCase(), 
+                  style: TextStyle(
+                    color: _getStatusColor(applicant['status'] ?? 'pending'), 
+                    fontSize: 10, 
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Match Score: 85%', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Match Score: 85%', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+              _buildStatusPicker(context, applicant),
+            ],
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -402,5 +506,55 @@ class EmployerJobsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+  Widget _buildStatusPicker(BuildContext context, Map<String, dynamic> applicant) {
+    final statuses = ['pending', 'top listed', 'approved', 'rejected'];
+    final currentStatus = applicant['status'] ?? 'pending';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: DropdownButton<String>(
+        value: statuses.contains(currentStatus) ? currentStatus : 'pending',
+        dropdownColor: const Color(0xFF0F172A),
+        underline: const SizedBox(),
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.white60, size: 18),
+        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+        items: statuses.map((status) {
+          return DropdownMenuItem(
+            value: status,
+            child: Text(status.toUpperCase()),
+          );
+        }).toList(),
+        onChanged: (newStatus) async {
+          if (newStatus != null && newStatus != currentStatus) {
+            final success = await JobService().updateApplicationStatus(applicant['id'], newStatus);
+            if (success && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Status updated to ${newStatus.toUpperCase()}')),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'top listed':
+        return Colors.blue;
+      case 'rejected':
+        return Colors.red;
+      case 'pending':
+      default:
+        return Colors.orange;
+    }
   }
 }
