@@ -15,6 +15,9 @@ class ResumeService {
     required String experience,
     required String education,
     required String textPreview,
+    double? overallScore,
+    Map<String, dynamic>? breakdown,
+    List<String>? badges,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -23,16 +26,24 @@ class ResumeService {
     }
 
     try {
-      await _db.collection('users').doc(user.uid).collection('resumes').doc('latest').set({
-        'filename': filename,
-        'category': category,
-        'name': name,
-        'skills': skills,
-        'experience': experience,
-        'education': education,
-        'textPreview': textPreview,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      await _db
+          .collection('users')
+          .doc(user.uid)
+          .collection('resumes')
+          .doc('latest')
+          .set({
+            'filename': filename,
+            'category': category,
+            'name': name,
+            'skills': skills,
+            'experience': experience,
+            'education': education,
+            'textPreview': textPreview,
+            'overallScore': overallScore,
+            'breakdown': breakdown,
+            'badges': badges,
+            'timestamp': FieldValue.serverTimestamp(),
+          });
       debugPrint('Resume analysis saved to Firestore for user: ${user.uid}');
     } catch (e) {
       debugPrint('Error saving resume analysis: $e');
@@ -45,7 +56,12 @@ class ResumeService {
     if (user == null) return null;
 
     try {
-      final doc = await _db.collection('users').doc(user.uid).collection('resumes').doc('latest').get();
+      final doc = await _db
+          .collection('users')
+          .doc(user.uid)
+          .collection('resumes')
+          .doc('latest')
+          .get();
       if (doc.exists) {
         return doc.data();
       }
@@ -73,6 +89,7 @@ class ResumeService {
   Future<void> updateProfile({
     String? name,
     String? location,
+    String? profilePictureUrl,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -81,6 +98,9 @@ class ResumeService {
       final Map<String, dynamic> updateData = {};
       if (name != null) updateData['name'] = name;
       if (location != null) updateData['location'] = location;
+      if (profilePictureUrl != null) {
+        updateData['profilePictureUrl'] = profilePictureUrl;
+      }
 
       if (updateData.isNotEmpty) {
         await _db
@@ -101,10 +121,13 @@ class ResumeService {
     return _db
         .collectionGroup('resumes')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              data['userId'] = doc.reference.parent.parent?.id; // Extract userId from path
-              return data;
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['userId'] =
+                doc.reference.parent.parent?.id; // Extract userId from path
+            return data;
+          }).toList(),
+        );
   }
 }

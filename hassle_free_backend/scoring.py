@@ -1,61 +1,76 @@
 import re
 
-def calculate_employability_score(resume_data, interview_data=None):
+def calculate_employability_score(resume_data, interview_data=None, test_data=None):
     """
-    Calculates a score from 0-10 based on resume analysis and interview performance.
+    Calculates a score from 0-100 based on the refined request:
+    - Experience (Max 40 pts): 2+ years = 40 points.
+    - Education (Max 30 pts): 20 for 4-year degree, 10 for college/school.
+    - Certificates (Max 10 pts): Presence of certificates = 10 points.
+    - Skills (Max 20 pts): 1.2 points per skill (Max 20).
     
-    Factors:
-    - Resume Skills (40%): Up to 4.0 points
-    - Education/Experience Keywords (20%): Up to 2.0 points
-    - Interview Performance (40%): Up to 4.0 points (if available)
+    Total: 100 Points.
     """
-    score = 0.0
+    total_score = 0.0
     
-    # 1. Resume Skills (Max 4.0)
+    # --- 1. Experience (Max 40 pts) ---
+    exp_text = resume_data.get('experience', '').lower()
+    exp_points = 0.0
+    year_match = re.search(r'(\d+)\s*\+?\s*year', exp_text)
+    if year_match:
+        years = int(year_match.group(1))
+        if years >= 2:
+            exp_points = 40.0
+        else:
+            exp_points = (years / 2.0) * 40.0
+    else:
+        num_exp_lines = len([l for l in exp_text.split('\n') if len(l.strip()) > 10])
+        if num_exp_lines >= 3:
+            exp_points = 40.0
+        elif num_exp_lines > 0:
+            exp_points = 20.0
+    total_score += exp_points
+
+    # --- 2. Education (Max 30 pts) ---
+    edu_text = resume_data.get('education', '').lower()
+    edu_points = 0.0
+    # 20 points for 4-year degree
+    if any(marker in edu_text for marker in ['bachelor', 'bs', 'b.e', 'btech', 'b.tech', 'be']):
+        edu_points += 20.0
+    # 10 points for college/school
+    if any(m in edu_text for m in ['college', 'school', 'academy', 'high school', 'intermediate']):
+        edu_points += 10.0
+    total_score += edu_points
+
+    # --- 3. Certificates (Max 10 pts) ---
+    cert_keywords = ['certificate', 'certified', 'certification', 'license', 'nanodegree']
+    full_text = (edu_text + " " + exp_text + " " + resume_data.get('text', '').lower())
+    cert_matches = [kw for kw in cert_keywords if kw in full_text]
+    cert_points = 10.0 if cert_matches else 0.0
+    total_score += cert_points
+
+    # --- 4. Skills (Max 20 pts) ---
     skills = resume_data.get('skills', [])
     num_skills = len(skills)
-    skill_score = min(num_skills * 0.4, 4.0) # 10 skills = 4.0 points
-    score += skill_score
-    
-    # 2. Education & Experience Keywords (Max 2.0)
-    text = resume_data.get('text', '').lower()
-    keywords = ['university', 'bachelor', 'master', 'bs', 'ms', 'experience', 'worked', 'project', 'intern']
-    found_keywords = [kw for kw in keywords if kw in text]
-    keyword_score = min(len(found_keywords) * 0.3, 2.0)
-    score += keyword_score
-    
-    # 3. Interview Performance (Max 4.0)
-    interview_score = 0.0
-    if interview_data:
-        # Weights for interview metrics
-        clarity = interview_data.get('clarity', 0.5)
-        confidence = interview_data.get('confidence', 0.5)
-        technical = interview_data.get('technical', 0.5)
-        communication = interview_data.get('communication', 0.5)
-        
-        avg_interview = (clarity + confidence + technical + communication) / 4.0
-        interview_score = avg_interview * 4.0
-    else:
-        # Default/Initial score if no interview yet
-        interview_score = 1.0 # Base points for participating
-        
-    score += interview_score
-    
-    # Adjust for badges
+    skill_points = min(num_skills * 1.2, 20.0)
+    total_score += skill_points
+
+    # --- Badge Awarding Logic ---
     badges = []
-    if score >= 8.5:
+    if total_score >= 85:
+        badges.append("Highly Employable")
+    if skill_points >= 18: # 15+ skills
         badges.append("Top Skilled")
-    if num_skills >= 8:
+    if skill_points >= 12 and exp_points >= 30:
         badges.append("Technical Specialist")
-    if interview_score >= 3.2:
-        badges.append("Great Communicator")
 
     return {
-        "overall_score": round(min(score, 10.0), 1),
+        "overall_score": round(min(total_score, 100.0), 1),
+        "scale": 100,
         "breakdown": {
-            "skills": round(skill_score, 1),
-            "profile": round(keyword_score, 1),
-            "interview": round(interview_score, 1)
+            "experience": round(exp_points, 1),
+            "education": round(edu_points, 1),
+            "certificates": round(cert_points, 1),
+            "skills": round(skill_points, 1)
         },
         "badges": badges
     }

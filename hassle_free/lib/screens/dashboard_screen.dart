@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'resume_screen.dart';
@@ -30,6 +31,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
   List<Map<String, dynamic>> _matchedJobs = [];
   List<String> _userSkills = [];
   bool _showNotifications = false;
+  String? _profilePictureUrl;
 
   @override
   void initState() {
@@ -44,23 +46,26 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
   }
 
   void _subscribeToUserData() {
-    _resumeSubscription = ResumeService().getLatestResumeAnalysisStream().listen(
-      (data) {
-        if (data != null && data['name'] != null) {
-          if (mounted) {
-            setState(() {
-              _userName = data['name'];
-              _userSkills = List<String>.from(data['skills'] ?? []);
-            });
-            // Re-subscribe job recommendations when skills update
-            _subscribeToJobRecommendations();
-          }
-        }
-      },
-      onError: (error) {
-        debugPrint('Error in Dashboard stream: $error');
-      },
-    );
+    _resumeSubscription = ResumeService()
+        .getLatestResumeAnalysisStream()
+        .listen(
+          (data) {
+            if (data != null && data['name'] != null) {
+              if (mounted) {
+                setState(() {
+                  _userName = data['name'];
+                  _userSkills = List<String>.from(data['skills'] ?? []);
+                  _profilePictureUrl = data['profilePictureUrl'];
+                });
+                // Re-subscribe job recommendations when skills update
+                _subscribeToJobRecommendations();
+              }
+            }
+          },
+          onError: (error) {
+            debugPrint('Error in Dashboard stream: $error');
+          },
+        );
   }
 
   void _subscribeToJobRecommendations() {
@@ -69,8 +74,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
       if (!mounted) return;
       final matched = jobs.where((job) {
         final jobSkills = List<String>.from(job['requiredSkills'] ?? []);
-        return jobSkills.any((s) =>
-          _userSkills.any((us) => us.toLowerCase().contains(s.toLowerCase()) || s.toLowerCase().contains(us.toLowerCase())));
+        return jobSkills.any(
+          (s) => _userSkills.any(
+            (us) =>
+                us.toLowerCase().contains(s.toLowerCase()) ||
+                s.toLowerCase().contains(us.toLowerCase()),
+          ),
+        );
       }).toList();
       setState(() => _matchedJobs = matched);
     });
@@ -154,7 +164,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                   _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                 ] else ...[
                   _buildSidebarItem(0, Icons.dashboard_rounded, 'Dashboard'),
-                  _buildSidebarItem(1, Icons.business_center_outlined, 'Job Postings'),
+                  _buildSidebarItem(
+                    1,
+                    Icons.business_center_outlined,
+                    'Job Postings',
+                  ),
                   _buildSidebarItem(2, Icons.business_outlined, 'Company'),
                 ],
                 const Spacer(),
@@ -257,7 +271,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
               stream: JobService().getMyApplicationsFullStream(),
               builder: (context, snapshot) {
                 final applications = snapshot.data ?? [];
-                return SingleChildScrollView(child: _buildDashboardContent(applications));
+                return SingleChildScrollView(
+                  child: _buildDashboardContent(applications),
+                );
               },
             ),
           ],
@@ -267,8 +283,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
 
   Widget _buildDashboardContent(List<Map<String, dynamic>> applications) {
     bool isMobile = MediaQuery.of(context).size.width < 1100;
-    int approvedCount = applications.where((a) => a['status'] == 'approved').length;
-    
+    int approvedCount = applications
+        .where((a) => a['status'] == 'approved')
+        .length;
+
     return Padding(
       padding: EdgeInsets.all(isMobile ? 16 : 32),
       child: Column(
@@ -284,10 +302,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                     clipBehavior: Clip.none,
                     children: [
                       GestureDetector(
-                        onTap: () => setState(() => _showNotifications = !_showNotifications),
+                        onTap: () => setState(
+                          () => _showNotifications = !_showNotifications,
+                        ),
                         child: CircleAvatar(
                           backgroundColor: Colors.white.withValues(alpha: 0.1),
-                          child: const Icon(Icons.notifications_none, color: Colors.white),
+                          child: const Icon(
+                            Icons.notifications_none,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                       if (_matchedJobs.isNotEmpty)
@@ -302,7 +325,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                             ),
                             child: Text(
                               '${_matchedJobs.length > 9 ? "9+" : _matchedJobs.length}',
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -311,11 +338,20 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                   const SizedBox(width: 16),
                   // Profile avatar → tapping opens ProfileScreen
                   GestureDetector(
-                    onTap: () => setState(() => _selectedIndex = _isJobSeeker ? 4 : _selectedIndex),
+                    onTap: () => setState(
+                      () => _selectedIndex = _isJobSeeker ? 4 : _selectedIndex,
+                    ),
                     child: CircleAvatar(
-                      backgroundImage: NetworkImage(
-                        'https://api.dicebear.com/7.x/avataaars/png?seed=${_userName.isEmpty ? "default" : _userName}',
-                      ),
+                      backgroundImage:
+                          _profilePictureUrl != null &&
+                              _profilePictureUrl!.startsWith('data:image')
+                          ? MemoryImage(
+                              base64Decode(_profilePictureUrl!.split(',').last),
+                            )
+                          : NetworkImage(
+                                  'https://api.dicebear.com/7.x/avataaars/png?seed=${_userName.isEmpty ? "default" : _userName}',
+                                )
+                                as ImageProvider,
                     ),
                   ),
                 ],
@@ -436,7 +472,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildBannerStat(applications.length.toString(), 'Applications'),
+                      _buildBannerStat(
+                        applications.length.toString(),
+                        'Applications',
+                      ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6366F1),
@@ -518,7 +557,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
             builder: (context, snapshot) {
               final jobs = snapshot.data ?? [];
               if (jobs.isEmpty) {
-                return const Text('No recommended jobs yet', style: TextStyle(color: Colors.white60));
+                return const Text(
+                  'No recommended jobs yet',
+                  style: TextStyle(color: Colors.white60),
+                );
               }
               return SizedBox(
                 height: 120,
@@ -582,7 +624,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
   Widget _buildApplicationStatusCard(Map<String, dynamic> app) {
     String status = app['status'] ?? 'pending';
     Color statusColor = _getStatusColor(status);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -600,7 +642,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              status == 'approved' ? Icons.check_circle : status == 'rejected' ? Icons.cancel : Icons.access_time_filled,
+              status == 'approved'
+                  ? Icons.check_circle
+                  : status == 'rejected'
+                  ? Icons.cancel
+                  : Icons.access_time_filled,
               color: statusColor,
               size: 20,
             ),
@@ -612,7 +658,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
               children: [
                 Text(
                   app['jobTitle'] ?? 'Job Title',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Text(
                   'Applied on ${_formatTimestamp(app['appliedAt'])}',
@@ -629,7 +678,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
             ),
             child: Text(
               status.toUpperCase(),
-              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -663,7 +716,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+        ),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF6366F1).withValues(alpha: 0.15),
@@ -689,17 +744,29 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                         color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 16),
+                      child: const Icon(
+                        Icons.auto_awesome,
+                        color: Color(0xFF818CF8),
+                        size: 16,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     const Text(
                       'Jobs Matching Your Skills',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white54,
+                    size: 20,
+                  ),
                   onPressed: () => setState(() => _showNotifications = false),
                 ),
               ],
@@ -721,9 +788,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
           else
             ...(_matchedJobs.take(5).map((job) {
               final skills = List<String>.from(job['requiredSkills'] ?? []);
-              final matchCount = skills.where((s) =>
-                _userSkills.any((us) => us.toLowerCase().contains(s.toLowerCase()) || s.toLowerCase().contains(us.toLowerCase()))
-              ).length;
+              final matchCount = skills
+                  .where(
+                    (s) => _userSkills.any(
+                      (us) =>
+                          us.toLowerCase().contains(s.toLowerCase()) ||
+                          s.toLowerCase().contains(us.toLowerCase()),
+                    ),
+                  )
+                  .length;
               return InkWell(
                 onTap: () {
                   setState(() {
@@ -733,9 +806,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                 },
                 borderRadius: BorderRadius.circular(0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -743,10 +823,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.business_center, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.business_center,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -755,14 +841,21 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                           children: [
                             Text(
                               job['title'] ?? 'Job Title',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '${job['company'] ?? ''} • ${job['location'] ?? ''}',
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                fontSize: 12,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -774,20 +867,31 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.green.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               '$matchCount match${matchCount == 1 ? '' : 'es'}',
-                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11),
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             job['salaryRange'] ?? '',
-                            style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              color: Color(0xFF818CF8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -799,15 +903,27 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
           // Footer
           if (_matchedJobs.length > 5)
             InkWell(
-              onTap: () => setState(() { _showNotifications = false; _selectedIndex = 1; }),
+              onTap: () => setState(() {
+                _showNotifications = false;
+                _selectedIndex = 1;
+              }),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20))),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
                 child: Text(
                   'View all ${_matchedJobs.length} matching jobs →',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(
+                    color: Color(0xFF818CF8),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),

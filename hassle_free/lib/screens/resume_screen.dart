@@ -46,7 +46,9 @@ class _ResumeScreenState extends State<ResumeScreen> {
           _education = data['education'] ?? "";
           _textPreview = data['textPreview'] ?? "";
         });
-        if (widget.onNameExtracted != null) widget.onNameExtracted!(_extractedName);
+        if (widget.onNameExtracted != null) {
+          widget.onNameExtracted!(_extractedName);
+        }
       }
     }
   }
@@ -68,9 +70,18 @@ class _ResumeScreenState extends State<ResumeScreen> {
       });
 
       try {
-        var request = http.MultipartRequest('POST', Uri.parse('http://localhost:5002/api/upload-resume'));
+        var request = http.MultipartRequest(
+          'POST',
+          Uri.parse('http://localhost:5002/api/upload-resume'),
+        );
         if (file.bytes != null) {
-          request.files.add(http.MultipartFile.fromBytes('resume', file.bytes!, filename: file.name));
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'resume',
+              file.bytes!,
+              filename: file.name,
+            ),
+          );
         }
 
         var streamedResponse = await request.send();
@@ -79,6 +90,8 @@ class _ResumeScreenState extends State<ResumeScreen> {
 
         if (response.statusCode == 200) {
           var data = json.decode(response.body);
+          var score = data['score'] ?? {};
+
           if (mounted) {
             setState(() {
               _isUploading = false;
@@ -91,7 +104,9 @@ class _ResumeScreenState extends State<ResumeScreen> {
               _education = data['education'] ?? "";
               _textPreview = data['text_preview'] ?? "";
             });
-            if (widget.onNameExtracted != null) widget.onNameExtracted!(_extractedName);
+            if (widget.onNameExtracted != null) {
+              widget.onNameExtracted!(_extractedName);
+            }
 
             await _resumeService.saveResumeAnalysis(
               filename: _filename,
@@ -101,6 +116,9 @@ class _ResumeScreenState extends State<ResumeScreen> {
               experience: _experience,
               education: _education,
               textPreview: _textPreview,
+              overallScore: (score['overall_score'] as num?)?.toDouble(),
+              breakdown: score['breakdown'],
+              badges: List<String>.from(score['badges'] ?? []),
             );
           }
         }
@@ -162,7 +180,9 @@ class _ResumeScreenState extends State<ResumeScreen> {
   }
 
   Widget _buildRightColumn() {
-    return _isAnalyzed ? _buildCandidateOverview() : _buildEmptyResultsPlaceholder();
+    return _isAnalyzed
+        ? _buildCandidateOverview()
+        : _buildEmptyResultsPlaceholder();
   }
 
   Widget _buildHeroBanner() {
@@ -171,14 +191,26 @@ class _ResumeScreenState extends State<ResumeScreen> {
       padding: const EdgeInsets.all(40),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF7C3AED)]),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2563EB), Color(0xFF7C3AED)],
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Resume Analysis', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+          const Text(
+            'Resume Analysis',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 36,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 12),
-          const Text('Let AI extract and visualize your professional profile', style: TextStyle(color: Colors.white70, fontSize: 16)),
+          const Text(
+            'Let AI extract and visualize your professional profile',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
+          ),
         ],
       ),
     );
@@ -200,7 +232,14 @@ class _ResumeScreenState extends State<ResumeScreen> {
             children: [
               Icon(icon, color: Colors.blueAccent, size: 24),
               const SizedBox(width: 12),
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -212,7 +251,12 @@ class _ResumeScreenState extends State<ResumeScreen> {
 
   List<Widget> _formatContent(String content) {
     if (content.isEmpty || content.contains("No history found")) {
-      return [const Text("No profile data found.", style: TextStyle(color: Colors.white38))];
+      return [
+        const Text(
+          "No profile data found.",
+          style: TextStyle(color: Colors.white38),
+        ),
+      ];
     }
 
     List<String> lines = content.split('\n');
@@ -221,7 +265,9 @@ class _ResumeScreenState extends State<ResumeScreen> {
       if (cleanLine.isEmpty) return const SizedBox(height: 8);
 
       // Regex for dates like "Feb 2025 - Apr 2025" or "2022 - 2026"
-      final datePattern = RegExp(r'([A-Za-z]+ \d{4} - [A-Za-z]+ \d{4})|(\d{4}\s*-\s*\d{4})');
+      final datePattern = RegExp(
+        r'([A-Za-z]+ \d{4} - [A-Za-z]+ \d{4})|(\d{4}\s*-\s*\d{4})',
+      );
       final match = datePattern.firstMatch(cleanLine);
 
       if (match != null) {
@@ -235,24 +281,43 @@ class _ResumeScreenState extends State<ResumeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(titleStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))),
-              Text(dateStr, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              Expanded(
+                child: Text(
+                  titleStr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Text(
+                dateStr,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
             ],
           ),
         );
       }
 
       // Bullets or subheaders
-      bool isBullet = cleanLine.startsWith('•') || cleanLine.startsWith('*') || cleanLine.startsWith('-');
+      bool isBullet =
+          cleanLine.startsWith('•') ||
+          cleanLine.startsWith('*') ||
+          cleanLine.startsWith('-');
       return Padding(
         padding: EdgeInsets.only(left: isBullet ? 12 : 0, bottom: 4),
         child: Text(
           cleanLine,
           style: TextStyle(
-            color: cleanLine.contains("Learned & Achieved") ? Colors.white : Colors.white70,
+            color: cleanLine.contains("Learned & Achieved")
+                ? Colors.white
+                : Colors.white70,
             fontSize: 14,
             height: 1.4,
-            fontWeight: cleanLine.contains("Learned & Achieved") ? FontWeight.bold : FontWeight.normal,
+            fontWeight: cleanLine.contains("Learned & Achieved")
+                ? FontWeight.bold
+                : FontWeight.normal,
           ),
         ),
       );
@@ -270,13 +335,27 @@ class _ResumeScreenState extends State<ResumeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Candidate Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+          const Text(
+            'Candidate Overview',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           const SizedBox(height: 24),
           _buildInfoRow(Icons.person, "Name:", _extractedName),
           const SizedBox(height: 12),
           _buildInfoRow(Icons.category, "Role:", _category),
           const SizedBox(height: 32),
-          const Text('Technical Skills', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          const Text(
+            'Technical Skills',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
@@ -293,9 +372,21 @@ class _ResumeScreenState extends State<ResumeScreen> {
       children: [
         Icon(icon, color: Colors.white54, size: 18),
         const SizedBox(width: 12),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 14)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 14),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -306,9 +397,23 @@ class _ResumeScreenState extends State<ResumeScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF3B82F6),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Text(skill.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.5)),
+      child: Text(
+        skill.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 
@@ -323,24 +428,54 @@ class _ResumeScreenState extends State<ResumeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Upload Resume', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+          const Text(
+            'Upload Resume',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           const SizedBox(height: 20),
           _isUploading
-              ? LinearProgressIndicator(value: _uploadProgress, color: Colors.blueAccent)
+              ? LinearProgressIndicator(
+                  value: _uploadProgress,
+                  color: Colors.blueAccent,
+                )
               : _isAnalyzed
-                  ? Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.greenAccent),
-                        const SizedBox(width: 12),
-                        const Expanded(child: Text("Successfully Analyzed!", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold))),
-                        TextButton(onPressed: () => setState(() => _isAnalyzed = false), child: const Text("Reset", style: TextStyle(color: Colors.white54))),
-                      ],
-                    )
-                  : ElevatedButton(
-                      onPressed: _pickAndUploadResume,
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3B82F6), minimumSize: const Size(double.infinity, 50)),
-                      child: const Text("Select File", style: TextStyle(color: Colors.white)),
+              ? Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.greenAccent),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        "Successfully Analyzed!",
+                        style: TextStyle(
+                          color: Colors.greenAccent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
+                    TextButton(
+                      onPressed: () => setState(() => _isAnalyzed = false),
+                      child: const Text(
+                        "Reset",
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ),
+                  ],
+                )
+              : ElevatedButton(
+                  onPressed: _pickAndUploadResume,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  child: const Text(
+                    "Select File",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
         ],
       ),
     );
@@ -349,8 +484,16 @@ class _ResumeScreenState extends State<ResumeScreen> {
   Widget _buildEmptyResultsPlaceholder() {
     return Container(
       height: 200,
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16)),
-      child: const Center(child: Text("Upload a resume to see analysis", style: TextStyle(color: Colors.white24))),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(
+        child: Text(
+          "Upload a resume to see analysis",
+          style: TextStyle(color: Colors.white24),
+        ),
+      ),
     );
   }
 }

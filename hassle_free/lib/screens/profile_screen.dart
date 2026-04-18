@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/resume_service.dart';
+import '../services/job_service.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 
@@ -13,6 +16,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ResumeService _resumeService = ResumeService();
+  final JobService _jobService = JobService();
   String _name = "User";
   String _location = "Lahore, Punjab, Pakistan";
   String _education = "";
@@ -20,13 +24,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<String> _skills = [];
   bool _isLoading = true;
   StreamSubscription? _resumeSubscription;
+  StreamSubscription? _appsSubscription;
 
-  final List<Map<String, dynamic>> _badges = [
-    {'title': 'Top Technical', 'icon': Icons.code, 'color': Colors.blueAccent},
-    {'title': 'Analytical Expert', 'icon': Icons.analytics, 'color': Colors.purpleAccent},
-    {'title': 'Effective Communicator', 'icon': Icons.chat_bubble, 'color': Colors.greenAccent},
-    {'title': 'Fast Learner', 'icon': Icons.bolt, 'color': Colors.orangeAccent},
-  ];
+  // AI Scoring Data
+  double _overallScore = 0.0;
+  Map<String, dynamic> _breakdown = {};
+  List<String> _userBadges = [];
+  int _appliedCount = 0;
+  String? _profilePictureUrl;
+
+  final Map<String, Map<String, dynamic>> _badgeDefinitions = {
+    'Highly Employable': {'icon': Icons.verified, 'color': Colors.amberAccent},
+    'Top Skilled': {'icon': Icons.bolt, 'color': Colors.blueAccent},
+    'Technical Specialist': {
+      'icon': Icons.settings,
+      'color': Colors.purpleAccent,
+    },
+    'Great Communicator': {
+      'icon': Icons.chat_bubble,
+      'color': Colors.greenAccent,
+    },
+    'Fast Learner': {'icon': Icons.auto_awesome, 'color': Colors.orangeAccent},
+    'Analytical Expert': {'icon': Icons.analytics, 'color': Colors.tealAccent},
+  };
 
   @override
   void initState() {
@@ -44,6 +64,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _education = data['education'] ?? "";
         _experience = data['experience'] ?? "";
         _skills = List<String>.from(data['skills'] ?? []);
+        _overallScore = (data['overallScore'] as num?)?.toDouble() ?? 0.0;
+        _breakdown = data['breakdown'] ?? {};
+        _userBadges = List<String>.from(data['badges'] ?? []);
         _isLoading = false;
       });
     }
@@ -60,6 +83,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _education = data['education'] ?? "";
               _experience = data['experience'] ?? "";
               _skills = List<String>.from(data['skills'] ?? []);
+              _overallScore = (data['overallScore'] as num?)?.toDouble() ?? 0.0;
+              _breakdown = data['breakdown'] ?? {};
+              _userBadges = List<String>.from(data['badges'] ?? []);
             }
             _isLoading = false;
           });
@@ -75,11 +101,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
     );
 
-    // Safety timeout to prevent infinite loading if the stream is silent
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted && _isLoading) {
+    _appsSubscription = _jobService.getMyApplicationsStream().listen((apps) {
+      if (mounted) {
         setState(() {
-          _isLoading = false;
+          _appliedCount = apps.length;
+        });
+      }
+    });
+
+    // Also get profile picture
+    _resumeService.getLatestResumeAnalysis().then((data) {
+      if (data != null && mounted) {
+        setState(() {
+          _profilePictureUrl = data['profilePictureUrl'];
         });
       }
     });
@@ -88,6 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _resumeSubscription?.cancel();
+    _appsSubscription?.cancel();
     super.dispose();
   }
 
@@ -96,7 +131,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool isWeb = MediaQuery.of(context).size.width >= 1100;
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+      );
     }
 
     return SingleChildScrollView(
@@ -110,28 +147,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 32),
           const Text(
             'Education Details',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 16),
           _buildEducationSection(),
           const SizedBox(height: 32),
           const Text(
             'Professional Experience',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 16),
           _buildExperienceSection(),
           const SizedBox(height: 32),
           const Text(
             'Achievements & Badges',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 16),
           _buildBadgeGrid(isWeb),
           const SizedBox(height: 32),
           const Text(
             'Technical Expertise',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 16),
           _buildSkillsSection(),
@@ -149,7 +202,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Row(
@@ -158,12 +215,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              ),
             ),
-            child: CircleAvatar(
-              radius: 50,
-              backgroundImage: NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=$_name'),
-              backgroundColor: const Color(0xFF0F172A),
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 50,
+                  backgroundImage:
+                      _profilePictureUrl != null &&
+                          _profilePictureUrl!.startsWith('data:image')
+                      ? MemoryImage(
+                          base64Decode(_profilePictureUrl!.split(',').last),
+                        )
+                      : NetworkImage(
+                              'https://api.dicebear.com/7.x/avataaars/png?seed=$_name',
+                            )
+                            as ImageProvider,
+                  backgroundColor: const Color(0xFF0F172A),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: _pickProfilePicture,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF6366F1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 32),
@@ -173,36 +264,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   _name,
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.5),
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
                 ),
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: 16, color: Colors.white.withValues(alpha: 0.5)),
+                    Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
                     const SizedBox(width: 4),
-                    Text(_location, style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+                    Text(
+                      _location,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF6366F1).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                    ),
                   ),
                   child: const Text(
                     'AI-Analyzed Candidate',
-                    style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 13, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Color(0xFFA5B4FC),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    _buildStatMini('12', 'Projects'),
+                    _buildStatMini(
+                      (_overallScore / 20.0).toStringAsFixed(1),
+                      'AI Rating',
+                    ),
                     const SizedBox(width: 32),
-                    _buildStatMini('4.9', 'AI Rating'),
-                    const SizedBox(width: 32),
-                    _buildStatMini('24', 'Applied'),
+                    _buildStatMini(_appliedCount.toString(), 'Applied'),
                   ],
                 ),
                 if (!isWeb) ...[
@@ -217,7 +332,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         backgroundColor: const Color(0xFF6366F1),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
                       ),
                     ),
@@ -233,7 +350,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         foregroundColor: Colors.redAccent,
                         side: const BorderSide(color: Colors.redAccent),
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -251,8 +370,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     elevation: 0,
                   ),
                 ),
@@ -264,8 +388,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                     side: const BorderSide(color: Colors.redAccent),
-                    padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 36,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ],
@@ -300,13 +429,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.school_outlined, color: Color(0xFF6366F1), size: 24),
+              const Icon(
+                Icons.school_outlined,
+                color: Color(0xFF6366F1),
+                size: 24,
+              ),
               const SizedBox(width: 12),
-              const Text("Extracted Academic History", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text(
+                "Extracted Academic History",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          ..._formatContent(_education.isEmpty ? "No education details found in the latest resume." : _education),
+          ..._formatContent(
+            _education.isEmpty
+                ? "No education details found in the latest resume."
+                : _education,
+          ),
         ],
       ),
     );
@@ -326,13 +470,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.work_outline, color: Color(0xFF6366F1), size: 24),
+              const Icon(
+                Icons.work_outline,
+                color: Color(0xFF6366F1),
+                size: 24,
+              ),
               const SizedBox(width: 12),
-              const Text("Extracted Working Experience", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text(
+                "Extracted Working Experience",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          ..._formatContent(_experience.isEmpty ? "No experience details found in the latest resume." : _experience),
+          ..._formatContent(
+            _experience.isEmpty
+                ? "No experience details found in the latest resume."
+                : _experience,
+          ),
         ],
       ),
     );
@@ -340,7 +499,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   List<Widget> _formatContent(String content) {
     if (content.isEmpty || content.startsWith("No ")) {
-      return [Text(content, style: TextStyle(fontSize: 15, height: 1.6, color: Colors.white.withValues(alpha: 0.8)))];
+      return [
+        Text(
+          content,
+          style: TextStyle(
+            fontSize: 15,
+            height: 1.6,
+            color: Colors.white.withValues(alpha: 0.8),
+          ),
+        ),
+      ];
     }
 
     List<String> lines = content.split('\n');
@@ -349,7 +517,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (cleanLine.isEmpty) return const SizedBox(height: 8);
 
       // Regex for dates like "Feb 2025 - Apr 2025" or "2022 - 2026"
-      final datePattern = RegExp(r'([A-Za-z]+ \d{4} - [A-Za-z]+ \d{4})|(\d{4}\s*-\s*\d{4})');
+      final datePattern = RegExp(
+        r'([A-Za-z]+ \d{4} - [A-Za-z]+ \d{4})|(\d{4}\s*-\s*\d{4})',
+      );
       final match = datePattern.firstMatch(cleanLine);
 
       if (match != null) {
@@ -362,14 +532,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(titleStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))),
-              Text(dateStr, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              Expanded(
+                child: Text(
+                  titleStr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Text(
+                dateStr,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
             ],
           ),
         );
       }
 
-      bool isBullet = cleanLine.startsWith('•') || cleanLine.startsWith('*') || cleanLine.startsWith('-');
+      bool isBullet =
+          cleanLine.startsWith('•') ||
+          cleanLine.startsWith('*') ||
+          cleanLine.startsWith('-');
       return Padding(
         padding: EdgeInsets.only(left: isBullet ? 12 : 0, bottom: 4),
         child: Text(
@@ -388,8 +573,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
+        ),
       ],
     );
   }
@@ -405,7 +603,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Row(
@@ -416,21 +618,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 const Text(
                   'Employability Score',
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'AI-powered analysis of your technical profile and experience.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 14,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    _buildScorePart('Technical', '9.2'),
+                    _buildScorePart(
+                      'Experience',
+                      (_breakdown['experience'] ?? 0.0).toString(),
+                    ),
                     const SizedBox(width: 32),
-                    _buildScorePart('Soft Skills', '8.5'),
+                    _buildScorePart(
+                      'Education',
+                      (_breakdown['education'] ?? 0.0).toString(),
+                    ),
                     const SizedBox(width: 32),
-                    _buildScorePart('Interview', '8.8'),
+                    _buildScorePart(
+                      'Skills',
+                      (_breakdown['skills'] ?? 0.0).toString(),
+                    ),
                   ],
                 ),
               ],
@@ -442,13 +660,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 2),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 2,
+              ),
             ),
-            child: const Column(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('8.8', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-                Text('/ 10', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(
+                  _overallScore.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  '/ 100',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -461,17 +692,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 12,
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildBadgeGrid(bool isWeb) {
+    if (_userBadges.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: Text(
+            "No badges earned yet. Complete your profile to earn badges!",
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _badges.length,
+      itemCount: _userBadges.length,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: isWeb ? 4 : 2,
         crossAxisSpacing: 16,
@@ -479,22 +739,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
         childAspectRatio: 2.5,
       ),
       itemBuilder: (context, index) {
-        var b = _badges[index];
+        var badgeName = _userBadges[index];
+        var def =
+            _badgeDefinitions[badgeName] ??
+            {'icon': Icons.stars, 'color': Colors.grey};
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: (b['color'] as Color).withValues(alpha: 0.2), width: 1.5),
+            border: Border.all(
+              color: (def['color'] as Color).withValues(alpha: 0.2),
+              width: 1.5,
+            ),
           ),
           child: Row(
             children: [
-              Icon(b['icon'], color: b['color'], size: 24),
+              Icon(def['icon'], color: def['color'], size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  b['title'],
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                  badgeName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.white,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -512,24 +783,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       spacing: 12,
       runSpacing: 12,
       children: skillsToShow
-          .map((s) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(s, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 14)),
-                    if (_skills.isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      const Icon(Icons.verified, color: Color(0xFF6366F1), size: 16),
-                    ],
+          .map(
+            (s) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    s,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (_skills.isNotEmpty) ...[
+                    const SizedBox(width: 10),
+                    const Icon(
+                      Icons.verified,
+                      color: Color(0xFF6366F1),
+                      size: 16,
+                    ),
                   ],
-                ),
-              ))
+                ],
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -542,7 +826,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Edit Profile',
+          style: TextStyle(color: Colors.white),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -552,7 +839,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               decoration: const InputDecoration(
                 labelText: 'Name',
                 labelStyle: TextStyle(color: Colors.white60),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -562,7 +851,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               decoration: const InputDecoration(
                 labelText: 'Location',
                 labelStyle: TextStyle(color: Colors.white60),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
               ),
             ),
           ],
@@ -581,13 +872,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (!context.mounted) return;
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+            ),
             child: const Text('Save', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _pickProfilePicture() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+
+    if (result != null && result.files.first.bytes != null) {
+      final bytes = result.files.first.bytes!;
+      final base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
+
+      await _resumeService.updateProfile(profilePictureUrl: base64Image);
+
+      setState(() {
+        _profilePictureUrl = base64Image;
+      });
+    }
+  }
 }
-
-

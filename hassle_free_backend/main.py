@@ -48,6 +48,9 @@ def upload_resume():
              print(f"Analysis failed: {analysis_result['error']}")
              return jsonify(analysis_result), 400
               
+        # 4. Calculate initial score
+        scoring_result = calculate_employability_score(analysis_result)
+              
         response = {
             "message": "Resume uploaded and analyzed",
             "filename": filename,
@@ -57,10 +60,11 @@ def upload_resume():
             "experience": analysis_result.get("experience", "Not found"),
             "education": analysis_result.get("education", "Not found"),
             "text_preview": analysis_result.get("text_preview", ""),
+            "score": scoring_result,
             "progress": 100 
         }
         
-        print(f"Analysis complete for {filename}. Name extracted: {response['name']}")
+        print(f"Analysis complete for {filename}. Name extracted: {response['name']}. Score: {scoring_result['overall_score']}")
         return jsonify(response), 200
         
     else:

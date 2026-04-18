@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/job_service.dart';
 import '../widgets/resume_thematic_viewer.dart';
+import '../widgets/candidate_avatar.dart';
 import 'post_job_screen.dart';
 
 class EmployerDashboardScreen extends StatelessWidget {
@@ -8,7 +9,7 @@ class EmployerDashboardScreen extends StatelessWidget {
 
   void _showPostJobDialog(BuildContext context) {
     bool isMobile = MediaQuery.of(context).size.width < 1100;
-    
+
     if (isMobile) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -45,36 +46,42 @@ class EmployerDashboardScreen extends StatelessWidget {
         children: [
           _buildHeader(context, isMobile),
           const SizedBox(height: 32),
-          
+
           StreamBuilder<Map<String, int>>(
             stream: jobService.getEmployerStatsStream(),
             builder: (context, snapshot) {
-              final stats = snapshot.data ?? {'activeJobs': 0, 'totalApplicants': 0};
+              final stats =
+                  snapshot.data ?? {'activeJobs': 0, 'totalApplicants': 0};
               return _buildStatsRow(isMobile, stats);
             },
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           const Text(
             'Your Job Postings',
             style: TextStyle(
-              fontSize: 24, 
-              fontWeight: FontWeight.bold, 
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
               color: Colors.white,
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 20),
-          
+
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: jobService.getEmployerJobsStream(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)));
+                return const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                );
               }
               if (snapshot.hasError) {
-                return const Text('Error loading jobs', style: TextStyle(color: Colors.red));
+                return const Text(
+                  'Error loading jobs',
+                  style: TextStyle(color: Colors.red),
+                );
               }
               final jobs = snapshot.data ?? [];
               if (jobs.isEmpty) {
@@ -83,13 +90,13 @@ class EmployerDashboardScreen extends StatelessWidget {
               return _buildJobsList(isMobile, jobs);
             },
           ),
-          
+
           const SizedBox(height: 32),
           const Text(
             'Your Top Applicants',
             style: TextStyle(
-              fontSize: 24, 
-              fontWeight: FontWeight.bold, 
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
               color: Colors.white,
               letterSpacing: -0.5,
             ),
@@ -108,31 +115,46 @@ class EmployerDashboardScreen extends StatelessWidget {
                 stream: jobService.getEmployerAllApplicantsStream(),
                 builder: (context, applicantSnapshot) {
                   final allApplicants = applicantSnapshot.data ?? [];
-                  
-                  // Matching logic: compare applicant skills with job requirements
-                  List<Map<String, dynamic>> matchedCandidates = allApplicants.map((a) {
-                    final resumeData = a['resumeData'] ?? {};
-                    final skills = List<String>.from(resumeData['skills'] ?? []);
-                    
-                    int matches = 0;
-                    for (var s in skills) {
-                      if (employerSkills.any((es) => es.toLowerCase() == s.toLowerCase())) {
-                        matches++;
-                      }
-                    }
-                    double score = skills.isEmpty ? 0 : (matches / employerSkills.length.clamp(1, 100)) * 100;
-                    
-                    return {
-                      ...a, 
-                      'name': a['seekerName'],
-                      'jobTitle': a['jobTitle'] ?? 'Unknown Position',
-                      'category': resumeData['category'] ?? 'Professional',
-                      'skills': skills,
-                      'matchScore': score.toStringAsFixed(0)
-                    };
-                  }).toList();
 
-                  matchedCandidates.sort((a, b) => double.parse(b['matchScore']).compareTo(double.parse(a['matchScore'])));
+                  // Matching logic: compare applicant skills with job requirements
+                  List<Map<String, dynamic>> matchedCandidates = allApplicants
+                      .map((a) {
+                        final resumeData = a['resumeData'] ?? {};
+                        final skills = List<String>.from(
+                          resumeData['skills'] ?? [],
+                        );
+
+                        int matches = 0;
+                        for (var s in skills) {
+                          if (employerSkills.any(
+                            (es) => es.toLowerCase() == s.toLowerCase(),
+                          )) {
+                            matches++;
+                          }
+                        }
+                        double score = skills.isEmpty
+                            ? 0
+                            : (matches / employerSkills.length.clamp(1, 100)) *
+                                  100;
+
+                        return {
+                          ...a,
+                          'name': a['seekerName'],
+                          'jobTitle': a['jobTitle'] ?? 'Unknown Position',
+                          'category': resumeData['category'] ?? 'Professional',
+                          'skills': skills,
+                          'matchScore': score.toStringAsFixed(0),
+                          'profilePictureUrl': resumeData['profilePictureUrl'],
+                          'seekerId': a['seekerId'],
+                        };
+                      })
+                      .toList();
+
+                  matchedCandidates.sort(
+                    (a, b) => double.parse(
+                      b['matchScore'],
+                    ).compareTo(double.parse(a['matchScore'])),
+                  );
 
                   if (matchedCandidates.isEmpty) {
                     return Container(
@@ -141,10 +163,19 @@ class EmployerDashboardScreen extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(24),
                       ),
-                      child: const Center(child: Text('No applicants yet', style: TextStyle(color: Colors.white60))),
+                      child: const Center(
+                        child: Text(
+                          'No applicants yet',
+                          style: TextStyle(color: Colors.white60),
+                        ),
+                      ),
                     );
                   }
-                  return _buildCandidateTable(context, isMobile, matchedCandidates);
+                  return _buildCandidateTable(
+                    context,
+                    isMobile,
+                    matchedCandidates,
+                  );
                 },
               );
             },
@@ -165,11 +196,25 @@ class EmployerDashboardScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.business_center_outlined, size: 64, color: Colors.white.withValues(alpha: 0.2)),
+          Icon(
+            Icons.business_center_outlined,
+            size: 64,
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
-          Text('No job postings yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.8))),
+          Text(
+            'No job postings yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+          ),
           const SizedBox(height: 8),
-          Text('Post your first job to start receiving candidates', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+          Text(
+            'Post your first job to start receiving candidates',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          ),
         ],
       ),
     );
@@ -183,7 +228,7 @@ class EmployerDashboardScreen extends StatelessWidget {
       itemBuilder: (context, index) {
         final job = jobs[index];
         final skills = List<String>.from(job['requiredSkills'] ?? []);
-        
+
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(24),
@@ -204,31 +249,45 @@ class EmployerDashboardScreen extends StatelessWidget {
                       children: [
                         Text(
                           job['title'] ?? 'Unknown Title',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           '${job['type']} • ${job['location']} • ${job['experienceLevel']}',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: job['status'] == 'active' ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                      color: job['status'] == 'active'
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       (job['status']?.toString() ?? 'active').toUpperCase(),
                       style: TextStyle(
-                        color: job['status'] == 'active' ? Colors.green : Colors.orange,
+                        color: job['status'] == 'active'
+                            ? Colors.green
+                            : Colors.orange,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -236,26 +295,51 @@ class EmployerDashboardScreen extends StatelessWidget {
                 job['description'] ?? '',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  ...skills.take(3).map((s) => Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1), 
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(s, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                  )),
+                  ...skills
+                      .take(3)
+                      .map(
+                        (s) => Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            s,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                      ),
                   if (skills.length > 3)
-                    Text('+${skills.length - 3} more', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                    Text(
+                      '+${skills.length - 3} more',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
+                    ),
                   const Spacer(),
                   Text(
                     job['salaryRange'] ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6366F1)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF6366F1),
+                    ),
                   ),
                 ],
               ),
@@ -274,8 +358,8 @@ class EmployerDashboardScreen extends StatelessWidget {
           const Text(
             'Recruitment Overview',
             style: TextStyle(
-              fontSize: 28, 
-              fontWeight: FontWeight.bold, 
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
               color: Colors.white,
               letterSpacing: -1,
             ),
@@ -290,11 +374,19 @@ class EmployerDashboardScreen extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: () => _showPostJobDialog(context),
               icon: const Icon(Icons.add, color: Colors.white, size: 20),
-              label: const Text('Post a New Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Post a New Job',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 0,
               ),
             ),
@@ -313,8 +405,8 @@ class EmployerDashboardScreen extends StatelessWidget {
               const Text(
                 'Recruitment Overview',
                 style: TextStyle(
-                  fontSize: 28, 
-                  fontWeight: FontWeight.bold, 
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
                   letterSpacing: -1,
                 ),
@@ -329,11 +421,16 @@ class EmployerDashboardScreen extends StatelessWidget {
         ElevatedButton.icon(
           onPressed: () => _showPostJobDialog(context),
           icon: const Icon(Icons.add, color: Colors.white, size: 20),
-          label: const Text('Post a New Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: const Text(
+            'Post a New Job',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF6366F1),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             elevation: 0,
           ),
         ),
@@ -347,15 +444,30 @@ class EmployerDashboardScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              _buildStatCard('Active Jobs', stats['activeJobs'].toString(), Icons.business_center, Colors.blue),
+              _buildStatCard(
+                'Active Jobs',
+                stats['activeJobs'].toString(),
+                Icons.business_center,
+                Colors.blue,
+              ),
               const SizedBox(width: 16),
-              _buildStatCard('Total Applicants', stats['totalApplicants'].toString(), Icons.people, Colors.purple),
+              _buildStatCard(
+                'Total Applicants',
+                stats['totalApplicants'].toString(),
+                Icons.people,
+                Colors.purple,
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildStatCard('Avg. Match', '84%', Icons.auto_awesome, Colors.green),
+              _buildStatCard(
+                'Avg. Match',
+                '84%',
+                Icons.auto_awesome,
+                Colors.green,
+              ),
             ],
           ),
         ],
@@ -363,16 +475,36 @@ class EmployerDashboardScreen extends StatelessWidget {
     }
     return Row(
       children: [
-        _buildStatCard('Active Jobs', stats['activeJobs'].toString(), Icons.business_center, Colors.blue),
+        _buildStatCard(
+          'Active Jobs',
+          stats['activeJobs'].toString(),
+          Icons.business_center,
+          Colors.blue,
+        ),
         const SizedBox(width: 20),
-        _buildStatCard('Total Applicants', stats['totalApplicants'].toString(), Icons.people, Colors.purple),
+        _buildStatCard(
+          'Total Applicants',
+          stats['totalApplicants'].toString(),
+          Icons.people,
+          Colors.purple,
+        ),
         const SizedBox(width: 20),
-        _buildStatCard('Average Match', '84%', Icons.auto_awesome, Colors.green),
+        _buildStatCard(
+          'Average Match',
+          '84%',
+          Icons.auto_awesome,
+          Colors.green,
+        ),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -387,24 +519,27 @@ class EmployerDashboardScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1), 
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: 20),
             Text(
-              value, 
+              value,
               style: const TextStyle(
-                fontSize: 32, 
-                fontWeight: FontWeight.bold, 
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
                 color: Colors.white,
                 letterSpacing: -1,
-              )
+              ),
             ),
             Text(
-              title, 
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
+              title,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 14,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -414,7 +549,11 @@ class EmployerDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCandidateTable(BuildContext context, bool isMobile, List<Map<String, dynamic>> candidates) {
+  Widget _buildCandidateTable(
+    BuildContext context,
+    bool isMobile,
+    List<Map<String, dynamic>> candidates,
+  ) {
     if (isMobile) {
       return Column(
         children: candidates.take(5).map((c) {
@@ -435,34 +574,52 @@ class EmployerDashboardScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
-                      ),
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundImage: NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=$name'),
-                      ),
+                    CandidateAvatar(
+                      seekerId: c['seekerId'] ?? '',
+                      seekerName: name,
+                      radius: 20,
+                      initialPictureUrl: c['profilePictureUrl'],
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
-                          Text('Applied for: $role', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'Applied for: $role',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(score, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14)),
+                      child: Text(
+                        score,
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -470,14 +627,28 @@ class EmployerDashboardScreen extends StatelessWidget {
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: skills.take(4).map((s) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(s, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                  )).toList(),
+                  children: skills
+                      .take(4)
+                      .map(
+                        (s) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            s,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
                 const SizedBox(height: 14),
                 SizedBox(
@@ -486,8 +657,11 @@ class EmployerDashboardScreen extends StatelessWidget {
                     onPressed: () {
                       final applicantFormat = {
                         'seekerName': c['seekerName'] ?? name,
-                        'seekerEmail': c['seekerEmail'] ?? 'Contact information hidden',
+                        'seekerEmail':
+                            c['seekerEmail'] ?? 'Contact information hidden',
                         'resumeData': c['resumeData'] ?? {},
+                        'profilePictureUrl': c['profilePictureUrl'],
+                        'seekerId': c['seekerId'],
                       };
                       showDialog(
                         context: context,
@@ -498,13 +672,23 @@ class EmployerDashboardScreen extends StatelessWidget {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                      backgroundColor: const Color(
+                        0xFF6366F1,
+                      ).withValues(alpha: 0.2),
                       foregroundColor: const Color(0xFF818CF8),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 0,
                     ),
-                    child: const Text('View Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    child: const Text(
+                      'View Profile',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -555,7 +739,7 @@ class EmployerDashboardScreen extends StatelessWidget {
               ),
             ),
           );
-        }
+        },
       ),
     );
   }
@@ -573,72 +757,120 @@ class EmployerDashboardScreen extends StatelessWidget {
     );
   }
 
-  DataRow _buildCandidateRow(BuildContext context, String name, String role, List<String> skills, String score, Map<String, dynamic> candidate) {
+  DataRow _buildCandidateRow(
+    BuildContext context,
+    String name,
+    String role,
+    List<String> skills,
+    String score,
+    Map<String, dynamic> candidate,
+  ) {
     return DataRow(
       cells: [
-        DataCell(Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
-              ),
-              child: CircleAvatar(
+        DataCell(
+          Row(
+            children: [
+              CandidateAvatar(
+                seekerId: candidate['seekerId'] ?? '',
+                seekerName: name,
                 radius: 18,
-                backgroundImage: NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=$name'),
+                initialPictureUrl: candidate['profilePictureUrl'],
               ),
+              const SizedBox(width: 14),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+        DataCell(
+          Text(
+            role,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 15,
             ),
-            const SizedBox(width: 14),
-            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
-          ],
-        )),
-        DataCell(Text(role, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 15))),
-        DataCell(Row(
-          children: skills.take(3).map((s) => Container(
-            margin: const EdgeInsets.only(right: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          ),
+        ),
+        DataCell(
+          Row(
+            children: skills
+                .take(3)
+                .map(
+                  (s) => Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      s,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        DataCell(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1), 
-              borderRadius: BorderRadius.circular(6),
+              color: Colors.green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(s, style: const TextStyle(fontSize: 11, color: Colors.white70)),
-          )).toList(),
-        )),
-        DataCell(Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.1), 
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            score, 
-            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-          ),
-        )),
-        DataCell(TextButton(
-          onPressed: () {
-            // Correctly pass the nested resumeData instead of the entire document as resumeData
-            final applicantFormat = {
-              'seekerName': candidate['seekerName'] ?? name,
-              'seekerEmail': candidate['seekerEmail'] ?? 'Contact information hidden',
-              'resumeData': candidate['resumeData'] ?? {},
-            };
-            
-            showDialog(
-              context: context,
-              builder: (context) => ResumeThematicViewer(
-                applicant: applicantFormat,
-                theme: 'Modern', 
+            child: Text(
+              score,
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
               ),
-            );
-          }, 
-          child: const Text(
-            'View Profile',
-            style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold),
-          )
-        )),
-      ]
+            ),
+          ),
+        ),
+        DataCell(
+          TextButton(
+            onPressed: () {
+              // Correctly pass the nested resumeData instead of the entire document as resumeData
+              final applicantFormat = {
+                'seekerName': candidate['seekerName'] ?? name,
+                'seekerEmail':
+                    candidate['seekerEmail'] ?? 'Contact information hidden',
+                'resumeData': candidate['resumeData'] ?? {},
+                'profilePictureUrl': candidate['profilePictureUrl'],
+                'seekerId': candidate['seekerId'],
+              };
+
+              showDialog(
+                context: context,
+                builder: (context) => ResumeThematicViewer(
+                  applicant: applicantFormat,
+                  theme: 'Modern',
+                ),
+              );
+            },
+            child: const Text(
+              'View Profile',
+              style: TextStyle(
+                color: Color(0xFF818CF8),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
