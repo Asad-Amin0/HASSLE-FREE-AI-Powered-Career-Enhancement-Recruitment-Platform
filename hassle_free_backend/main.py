@@ -73,33 +73,180 @@ def upload_resume():
 
 @app.route('/api/analyze-interview', methods=['POST'], strict_slashes=False)
 def analyze_interview():
-    """Endpoint for analyzing interview metrics synchronously (simulated for now)."""
+    """Endpoint for analyzing interview metrics and updating the overall score."""
     print("--- Incoming Interview Analysis ---")
     data = request.json
     if not data:
         return jsonify({"error": "No data provided"}), 400
         
-    # In a real system, we might process audio/video blobs here
-    # For now, we assume the frontend sends high-level metrics
+    # Metrics from the interview (Full SDS Set)
     metrics = {
         "clarity": data.get("clarity", 0.5),
         "confidence": data.get("confidence", 0.5),
         "technical_depth": data.get("technical_depth", 0.5),
-        "communication": data.get("communication", 0.5)
+        "communication": data.get("communication", 0.5),
+        "tone_modulation": data.get("tone_modulation", 0.5),
+        "keyword_relevance": data.get("keyword_relevance", 0.5)
     }
     
-    # Calculate detailed feedback labels (logic moved from frontend to backend)
+    # Optional resume data to calculate the updated overall score
+    resume_data = data.get("resume_data", {})
+    scoring_result = calculate_employability_score(resume_data, metrics)
+    
+    # Generate detailed feedback based on SDS dimensions
     feedback = []
+    
+    # 1. Communication & Sentiment
     if metrics["communication"] > 0.8:
         feedback.append({"label": "Communication", "score": metrics["communication"] * 100, "text": "Great eye contact and confident body language"})
+    else:
+        feedback.append({"label": "Communication", "score": metrics["communication"] * 100, "text": "Work on maintaining more consistent eye contact"})
+
+    # 2. Tone Modulation (SDS Page 8)
+    if metrics["tone_modulation"] > 0.7:
+        feedback.append({"label": "Tone", "score": metrics["tone_modulation"] * 100, "text": "Excellent vocal variety and professional pitch"})
+    else:
+        feedback.append({"label": "Tone", "score": metrics["tone_modulation"] * 100, "text": "Try to vary your pitch to avoid sounding monotonous"})
+
+    # 3. Keyword Relevance (SDS Page 8)
+    if metrics["keyword_relevance"] > 0.8:
+        feedback.append({"label": "Keywords", "score": metrics["keyword_relevance"] * 100, "text": "Strong usage of relevant industry-standard terminology"})
+    else:
+        feedback.append({"label": "Keywords", "score": metrics["keyword_relevance"] * 100, "text": "Incorporate more role-specific keywords in your answers"})
+
+    # 4. Clarity & Technical Depth
     if metrics["clarity"] > 0.8:
-        feedback.append({"label": "Clarity", "score": metrics["clarity"] * 100, "text": "Clear and concise explanation of concepts"})
+        feedback.append({"label": "Clarity", "score": metrics["clarity"] * 100, "text": "Clear and concise explanation of complex concepts"})
     
+    # NEW: Satisfaction-driven Critique (What is Right and What is Wrong)
+    critique = {
+        "right": [],
+        "wrong": []
+    }
+    
+    # Logic for Critique
+    if metrics["communication"] > 0.7:
+        critique["right"].append("Strong eye contact and professional body language.")
+    else:
+        critique["wrong"].append("Body language appeared slightly closed; try to use more open gestures.")
+
+    if metrics["tone_modulation"] > 0.7:
+        critique["right"].append("Excellent vocal variety that kept the conversation engaging.")
+    else:
+        critique["wrong"].append("Tone was somewhat monotonous; vary your pitch to emphasize key points.")
+
+    if metrics["keyword_relevance"] > 0.7:
+        critique["right"].append("Good use of industry-standard terminology.")
+    else:
+        critique["wrong"].append("Missed key industry terms; try to link your experience to specific tools.")
+
+    if metrics["technical_depth"] > 0.8:
+        critique["right"].append("Demonstrated deep technical expertise in your answers.")
+    else:
+        critique["wrong"].append("Technical answers were surface-level; provide more metrics/examples.")
+
     return jsonify({
         "status": "success",
         "detailed_feedback": feedback,
-        "recommendation": "Try to provide more metrics in your technical answers" if metrics["technical_depth"] < 0.7 else "Strong technical profile"
+        "score_update": scoring_result,
+        "critique": critique,
+        "recommendation": "Strong profile with high keyword relevance" if metrics["keyword_relevance"] > 0.7 else "Consider studying more industry-specific terminology"
     }), 200
+
+@app.route('/api/generate-questions', methods=['POST'], strict_slashes=False)
+def generate_questions():
+    """Generates a dynamic set of interview questions based on user skills."""
+    data = request.json
+    skills = data.get("skills", [])
+    
+    # Base behavioral questions
+    questions = [
+        "Tell me about a project where you applied your strongest skills to solve a complex problem.",
+        "How do you handle a situation where you lack the necessary expertise to complete a task?"
+    ]
+    
+    # Skill-specific technical questions (Dynamic Mapping)
+    skill_map = {
+        "python": [
+            "Explain the difference between deep copy and shallow copy in Python.",
+            "How does Python's memory management work, particularly with garbage collection?",
+            "What are decorators in Python and how are they used?"
+        ],
+        "flutter": [
+            "What is the difference between a StatelessWidget and a StatefulWidget?",
+            "How do you handle state management in large-scale Flutter applications?",
+            "Explain the Flutter widget lifecycle."
+        ],
+        "dart": [
+            "Explain the concept of 'mixins' in Dart.",
+            "How does asynchronous programming work in Dart using Futures and Streams?",
+            "What is the difference between 'final' and 'const' in Dart?"
+        ],
+        "react": [
+            "What are React Hooks and why are they used?",
+            "Explain the Virtual DOM and how React updates the UI efficiently.",
+            "What is the difference between functional and class components?"
+        ],
+        "node.js": [
+            "Explain the event loop in Node.js.",
+            "What is the difference between setImmediate() and process.nextTick()?",
+            "How do you handle streams in Node.js?"
+        ],
+        "aws": [
+            "What is the difference between S3 and EBS?",
+            "Explain the shared responsibility model in AWS.",
+            "How does AWS Lambda work?"
+        ],
+        "docker": [
+            "What is the difference between an image and a container?",
+            "Explain Docker Compose and its use cases.",
+            "How do you optimize a Dockerfile for smaller image sizes?"
+        ],
+        "c++": [
+            "What are pointers and references in C++?",
+            "Explain polymorphism and how it is achieved in C++.",
+            "What is the RAII principle?"
+        ],
+        "java": [
+            "What are the main principles of Object-Oriented Programming, and how does Java implement them?",
+            "Explain the Java Virtual Machine (JVM) architecture.",
+            "What is the difference between an interface and an abstract class?"
+        ],
+        "sql": [
+            "What is the difference between an INNER JOIN and a LEFT JOIN?",
+            "Explain database normalization and its importance.",
+            "What are indexes and how do they improve query performance?"
+        ],
+        "machine learning": [
+            "What is the difference between supervised and unsupervised learning?",
+            "How do you handle overfitting in a machine learning model?",
+            "Explain the concept of cross-validation."
+        ],
+        "ai": [
+            "Explain the concept of Neural Networks and their basic architecture.",
+            "What are the ethical considerations when developing AI systems?",
+            "What is the difference between Narrow AI and General AI?"
+        ]
+    }
+    
+    # Add questions based on found skills
+    for skill in skills:
+        skill_lower = skill.lower().strip()
+        for key in skill_map:
+            if key in skill_lower or skill_lower in key:
+                import random
+                questions.append(random.choice(skill_map[key]))
+            
+    # Fallback if no specific skills found
+    if len(questions) < 5:
+        questions.append("Where do you see yourself professionally in the next five years?")
+        questions.append("Why are you the best candidate for a role involving your current skillset?")
+        questions.append("Describe a time you failed and how you handled it.")
+
+    # Return top 5 unique questions
+    import random
+    random.shuffle(questions)
+    return jsonify({"questions": list(dict.fromkeys(questions))[:5]}), 200
 
 @app.route('/api/candidate-score', methods=['POST'], strict_slashes=False)
 def get_candidate_score():

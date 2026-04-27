@@ -172,44 +172,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                   _buildSidebarItem(2, Icons.business_outlined, 'Company'),
                 ],
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Upgrade to Pro',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const Text(
-                        'Get unlimited AI features',
-                        style: TextStyle(fontSize: 12, color: Colors.white70),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
-                          minimumSize: const Size(double.infinity, 40),
-                        ),
-                        onPressed: () {},
-                        child: const Text(
-                          'Upgrade Now',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildUpgradeCard(),
               ],
             ),
           ),
@@ -260,7 +223,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
           },
         );
       case 3:
-        return const InterviewScreen();
+        return InterviewScreen(skills: _userSkills);
       case 4:
         return const ProfileScreen();
       default:
@@ -938,6 +901,12 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: const Text(
           'HASSLE-FREE',
           style: TextStyle(
@@ -947,6 +916,54 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
           ),
         ),
         actions: const [],
+      ),
+      drawer: Drawer(
+        backgroundColor: const Color(0xFF0F172A),
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.white10)),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3B26F2), Color(0xFF9042F6)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'HASSLE-FREE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildUpgradeCard(),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndexMap(_selectedIndex),
@@ -1032,6 +1049,42 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
     if (mobileIndex == 3) return 3; // Interview
     if (mobileIndex == 4) return 4; // Profile
     return 0;
+  }
+
+  Widget _buildUpgradeCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Upgrade to Pro',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const Text(
+            'Get unlimited AI features',
+            style: TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+              minimumSize: const Size(double.infinity, 40),
+            ),
+            onPressed: _showUpgradeDialog,
+            child: const Text(
+              'Upgrade Now',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSidebarItem(int index, IconData icon, String title) {
@@ -1239,6 +1292,295 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 900),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 50,
+                spreadRadius: 10,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Choose Your Plan',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Unlock the full power of HASSLE-FREE AI',
+                                style: TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Color(0xFF94A3B8),
+                              size: 30,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Plans
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          bool isSmall =
+                              MediaQuery.of(context).size.width < 900;
+                          return Flex(
+                            direction: isSmall
+                                ? Axis.vertical
+                                : Axis.horizontal,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: isSmall
+                                ? CrossAxisAlignment.center
+                                : CrossAxisAlignment.start,
+                            children: [
+                              _buildPlanCard(
+                                title: 'Basic',
+                                price: 'Free',
+                                features: [
+                                  '5 Resume Scans/mo',
+                                  'Basic Mock Interview',
+                                  'Standard Support',
+                                ],
+                                gradient: [
+                                  const Color(0xFF334155),
+                                  const Color(0xFF475569),
+                                ],
+                                isRecommended: false,
+                              ),
+                              const SizedBox(height: 24, width: 24),
+                              _buildPlanCard(
+                                title: 'Pro',
+                                price: '\$19',
+                                features: [
+                                  'Unlimited Resume Scans',
+                                  'Priority AI Interviews',
+                                  'Skill Verification Badges',
+                                  'Advanced Analytics',
+                                ],
+                                gradient: [
+                                  const Color(0xFF6366F1),
+                                  const Color(0xFF8B5CF6),
+                                ],
+                                isRecommended: true,
+                              ),
+                              const SizedBox(height: 24, width: 24),
+                              _buildPlanCard(
+                                title: 'Enterprise',
+                                price: '\$49',
+                                features: [
+                                  'Custom AI Models',
+                                  'Team Management',
+                                  'API Access',
+                                  '24/7 Dedicated Support',
+                                ],
+                                gradient: [
+                                  const Color(0xFFF43F5E),
+                                  const Color(0xFFFB923C),
+                                ],
+                                isRecommended: false,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlanCard({
+    required String title,
+    required String price,
+    required List<String> features,
+    required List<Color> gradient,
+    required bool isRecommended,
+  }) {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: isRecommended
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isRecommended
+              ? gradient[0].withValues(alpha: 0.5)
+              : Colors.white.withValues(alpha: 0.1),
+          width: isRecommended ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isRecommended)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: gradient[0],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'RECOMMENDED',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                price,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (price != 'Free')
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6, left: 4),
+                  child: Text(
+                    '/mo',
+                    style: TextStyle(color: Color(0xFF94A3B8)),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          ...features.map(
+            (f) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: gradient[0],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      f,
+                      style: const TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isRecommended
+                    ? Colors.transparent
+                    : Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: isRecommended
+                      ? BorderSide.none
+                      : BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                ),
+              ),
+              child: Ink(
+                decoration: isRecommended
+                    ? BoxDecoration(
+                        gradient: LinearGradient(colors: gradient),
+                        borderRadius: BorderRadius.circular(12),
+                      )
+                    : null,
+                child: Container(
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Get Started',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
