@@ -2,6 +2,6 @@
   "version": 2,
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/hassle_free/build/web/$1" }
+    { "source": "/(.*)", "destination": "/build/web/$1" }
   ]
 }
