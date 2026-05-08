@@ -3,16 +3,6 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/(assets/.*)", "destination": "/build/web/$1" },
-    { "source": "/(canvaskit/.*)", "destination": "/build/web/$1" },
-    { "source": "/(icons/.*)", "destination": "/build/web/$1" },
-    { "source": "/(flutter.js)", "destination": "/build/web/$1" },
-    { "source": "/(flutter_bootstrap.js)", "destination": "/build/web/$1" },
-    { "source": "/(flutter_service_worker.js)", "destination": "/build/web/$1" },
-    { "source": "/(main.dart.js)", "destination": "/build/web/$1" },
-    { "source": "/(manifest.json)", "destination": "/build/web/$1" },
-    { "source": "/(version.json)", "destination": "/build/web/$1" },
-    { "source": "/favicon.png", "destination": "/build/web/favicon.png" },
-    { "source": "/(.*)", "destination": "/build/web/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
