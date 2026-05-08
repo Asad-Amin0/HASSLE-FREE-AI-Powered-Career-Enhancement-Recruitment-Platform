@@ -1,6 +1,7 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:flutter/foundation.dart';
 
 class PdfGenerator {
   static Future<void> generateAndDownloadResume({
@@ -13,12 +14,21 @@ class PdfGenerator {
     final pdf = pw.Document();
     _addResumePage(pdf, name, jobTitle, email, resumeData);
 
-    final fileName = "Resume_${name.replaceAll(' ', '_')}${seekerId != null ? '_$seekerId' : ''}.pdf";
+    final fileName = "Resume_${name.replaceAll(' ', '_')}.pdf";
     
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: fileName,
-    );
+    if (kIsWeb) {
+      // On Web, sharePdf triggers a direct download without opening the print dialog
+      // This is much more reliable for bulk downloads
+      await Printing.sharePdf(
+        bytes: await pdf.save(),
+        filename: fileName,
+      );
+    } else {
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: fileName,
+      );
+    }
   }
 
   static Future<void> generateBulkResumes(List<Map<String, dynamic>> candidates) async {

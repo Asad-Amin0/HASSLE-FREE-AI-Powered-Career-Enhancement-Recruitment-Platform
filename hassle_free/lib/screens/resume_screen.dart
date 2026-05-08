@@ -31,6 +31,7 @@ class _ResumeScreenState extends State<ResumeScreen> {
   List<String> _skills = [];
   String _experience = "";
   String _education = "";
+  List<String> _certificates = [];
   String _textPreview = "";
   final ResumeService _resumeService = ResumeService();
 
@@ -52,6 +53,7 @@ class _ResumeScreenState extends State<ResumeScreen> {
           _skills = List<String>.from(data['skills'] ?? []);
           _experience = data['experience'] ?? "";
           _education = data['education'] ?? "";
+          _certificates = List<String>.from(data['certificates'] ?? []);
           _textPreview = data['textPreview'] ?? "";
         });
         if (widget.onNameExtracted != null) {
@@ -110,6 +112,7 @@ class _ResumeScreenState extends State<ResumeScreen> {
               _skills = List<String>.from(data['skills'] ?? []);
               _experience = data['experience'] ?? "";
               _education = data['education'] ?? "";
+              _certificates = List<String>.from(data['certificates'] ?? []);
               _textPreview = data['text_preview'] ?? "";
             });
             if (widget.onNameExtracted != null) {
@@ -123,6 +126,7 @@ class _ResumeScreenState extends State<ResumeScreen> {
               skills: _skills,
               experience: _experience,
               education: _education,
+              certificates: _certificates,
               textPreview: _textPreview,
               overallScore: (score['overall_score'] as num?)?.toDouble(),
               breakdown: score['breakdown'],
@@ -182,6 +186,14 @@ class _ResumeScreenState extends State<ResumeScreen> {
           _buildResultSectionCard("Experience", _experience, Icons.work),
           const SizedBox(height: 24),
           _buildResultSectionCard("Education", _education, Icons.school),
+          if (_certificates.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _buildResultSectionCard(
+              "Certifications",
+              _certificates.join('\n'),
+              Icons.card_membership,
+            ),
+          ],
         ],
       ],
     );

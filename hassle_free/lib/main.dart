@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
-import 'features/mock_interview/viewmodels/mock_interview_viewmodel.dart';
+import 'services/supabase_service.dart';
+import 'utils/navigator_utils.dart';
+
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,10 +25,14 @@ void main() async {
   // Initialize Auth Service
   await AuthService().init();
   
+  // Initialize Supabase Service
+  await SupabaseService().init();
+
+  
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => MockInterviewViewModel()),
+        Provider<AuthService>(create: (_) => AuthService()),
       ],
       child: const MyApp(),
     ),
@@ -38,7 +45,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'HASSLE-FREE',
+
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Inter', // Inter is a standard system font or fallbacks naturally

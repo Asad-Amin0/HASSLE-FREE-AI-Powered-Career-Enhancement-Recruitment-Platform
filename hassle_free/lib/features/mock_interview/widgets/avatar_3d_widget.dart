@@ -60,89 +60,156 @@ class _Avatar3DWidgetState extends State<Avatar3DWidget>
             ? (0.5 + _glowController.value * 0.5)
             : 0.3;
 
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            // ── Glow Ring ──────────────────────────────────────────────────
-            Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: _moodColor.withValues(alpha: glowIntensity * 0.6),
-                    blurRadius: 30 * glowIntensity,
-                    spreadRadius: 8 * glowIntensity,
-                  ),
-                ],
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: _moodColor.withValues(alpha: glowIntensity * 0.3),
+                blurRadius: 20 * glowIntensity,
+                spreadRadius: 2 * glowIntensity,
               ),
-            ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // ── Avatar Container ───────────────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF1E293B),
+                        const Color(0xFF0F172A),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: _moodColor.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
+                  ),
+                  child: ModelViewer(
+                    key: ValueKey(widget.avatarState.animation),
+                    src: 'assets/models/avatar.glb',
+                    alt: 'AI Interviewer Avatar',
+                    autoPlay: true,
+                    autoRotate: false,
+                    cameraControls: false,
+                    cameraOrbit: '0deg 80deg 1.8m',
+                    cameraTarget: '0m 1.55m 0m',
+                    fieldOfView: '25deg',
+                    animationName: widget.avatarState.animation,
+                    backgroundColor: Colors.transparent,
+                    relatedJs: _generateLipSyncJs(widget.phonemeNotifier.value),
+                  ),
+                ),
 
-            // ── Avatar Container ───────────────────────────────────────────
-            ClipOval(
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF0F172A),
-                      const Color(0xFF1E293B),
+                // ── Live Badge ────────────────────────────────────────────────
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Live',
+                          style: TextStyle(
+                            color: Color(0xFF10B981),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                   .fadeIn(duration: 800.ms),
+                ),
+
+                // ── AI Interviewer Labels ──────────────────────────────────────
+                Positioned(
+                  bottom: 16,
+                  left: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'AI Interviewer',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Alex AI',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 4),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  border: Border.all(
-                    color: _moodColor,
-                    width: 2.5,
+                ),
+
+                // ── Status badge (Modified to match more subtle style) ─────────
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: _StatusBadge(mood: widget.avatarState.mood),
+                ),
+
+                // ── Phoneme / Mouth indicator ──────────────────────────────────
+                if (widget.avatarState.isSpeaking)
+                  Positioned(
+                    bottom: 70,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: ValueListenableBuilder<String>(
+                        valueListenable: widget.phonemeNotifier,
+                        builder: (context, phoneme, _) {
+                          return _PhonemeIndicator(phoneme: phoneme);
+                        },
+                      ),
+                    ),
                   ),
-                ),
-                child: ModelViewer(
-                  key: ValueKey(widget.avatarState.animation), // Reset on animation change
-                  src: 'assets/models/avatar.glb',
-                  alt: 'AI Interviewer Avatar',
-                  autoPlay: true,
-                  autoRotate: false,
-                  cameraControls: false,
-                  cameraOrbit: '0deg 80deg 1.8m',
-                  cameraTarget: '0m 1.55m 0m',
-                  fieldOfView: '25deg',
-                  animationName: widget.avatarState.animation,
-                  backgroundColor: Colors.transparent,
-                  // Experimental lip sync JS for web
-                  relatedJs: _generateLipSyncJs(widget.phonemeNotifier.value),
-                ),
-              ),
-            )
-                .animate(target: widget.avatarState.isSpeaking ? 1 : 0)
-                .scale(
-                  begin: const Offset(1.0, 1.0),
-                  end: const Offset(1.02, 1.02),
-                  duration: 600.ms,
-                  curve: Curves.easeInOut,
-                ),
-
-            // ── Phoneme / Mouth indicator (visible debug overlay) ──────────
-            if (widget.avatarState.isSpeaking)
-              Positioned(
-                bottom: 18,
-                child: ValueListenableBuilder<String>(
-                  valueListenable: widget.phonemeNotifier,
-                  builder: (context, phoneme, _) {
-                    return _PhonemeIndicator(phoneme: phoneme);
-                  },
-                ),
-              ),
-
-            // ── Status badge ───────────────────────────────────────────────
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: _StatusBadge(mood: widget.avatarState.mood),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -213,17 +280,20 @@ class _StatusBadge extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8),
+        ],
       ),
       child: Text(
         label,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

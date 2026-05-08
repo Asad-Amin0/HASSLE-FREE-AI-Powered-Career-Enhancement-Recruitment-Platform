@@ -6,8 +6,15 @@ import '../models/interview_question.dart';
 /// Connects to your Node.js RAG backend (index__1_.js style server)
 /// or falls back to built-in professional question bank.
 class RagQuestionService {
-  // Your Node.js RAG backend URL — update this
-  static const String _backendUrl = 'http://localhost:3000';
+  // Updated to support multiple platforms (Web, Android Emulator, Desktop)
+  static String get _backendUrl {
+    if (kIsWeb) return 'http://localhost:3000';
+    // defaultTargetPlatform is from foundation.dart
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:3000'; // Android emulator access to host localhost
+    }
+    return 'http://localhost:3000'; // Windows/macOS/iOS or real device IP
+  }
 
   // ─── Built-in Professional Question Bank (RAG fallback) ───────────────────
   // These are stored here in the app so the interview always works offline.
@@ -17,212 +24,324 @@ class RagQuestionService {
       {
         'id': 'fl_001',
         'question': 'Explain the difference between StatelessWidget and StatefulWidget in Flutter, and when you would choose one over the other.',
-        'idealAnswer': 'StatelessWidget is immutable — it has no mutable state and rebuilds only when its parent passes new configuration. StatefulWidget maintains a mutable State object that can call setState() to trigger a rebuild. Use StatelessWidget for UI that only depends on its constructor parameters (e.g. a styled text label). Use StatefulWidget when the widget needs to change over time, respond to user input, or maintain local state like form fields, animations, or toggles.',
-        'keyPhrases': ['immutable', 'mutable', 'setState', 'rebuild', 'State object', 'constructor parameters'],
+        'idealAnswer': 'StatelessWidget is immutable — it has no mutable state. StatefulWidget maintains a mutable State object.',
+        'keyPhrases': ['immutable', 'mutable', 'setState', 'rebuild', 'State object'],
         'skill': 'Flutter',
         'difficulty': 'intermediate',
-        'category': 'technical',
-        'facialExpression': 'smile',
-        'avatarAnimation': 'Talking_0',
+        'category': 'Technical',
       },
       {
         'id': 'fl_002',
-        'question': 'What is the Widget tree in Flutter and how does the rendering pipeline work?',
-        'idealAnswer': 'Flutter has three trees: Widget tree (immutable description of UI), Element tree (mutable instances managing state and lifecycle), and Render tree (handles layout and painting). Widgets are lightweight blueprints. When setState is called, Flutter diffs the widget tree, updates the element tree selectively, and repaints only dirty render objects. This makes Flutter fast even with complex UIs because full tree rebuilds are cheap — only painting is expensive.',
-        'keyPhrases': ['Widget tree', 'Element tree', 'Render tree', 'setState', 'diff', 'layout', 'painting', 'immutable'],
+        'question': 'What are keys in Flutter and when should we use them?',
+        'idealAnswer': 'Keys preserve state when widgets move in the tree.',
+        'keyPhrases': ['preserve state', 'ValueKey', 'ObjectKey', 'GlobalKey'],
         'skill': 'Flutter',
-        'difficulty': 'advanced',
-        'category': 'technical',
-        'facialExpression': 'curious',
-        'avatarAnimation': 'Talking_1',
+        'difficulty': 'intermediate',
+        'category': 'Technical',
       },
       {
         'id': 'fl_003',
-        'question': 'Describe the Provider pattern in Flutter and explain how it compares to Riverpod or BLoC.',
-        'idealAnswer': 'Provider is an InheritedWidget wrapper that allows dependency injection and state sharing down the widget tree via ChangeNotifier. It is simple and Flutter-idiomatic. Riverpod improves on Provider by removing context dependency, supporting compile-time safety, and allowing providers to be declared globally. BLoC separates business logic from UI using streams — input events go in, states come out — following strict unidirectional data flow. Provider is great for small apps; BLoC scales better for complex enterprise apps; Riverpod balances both.',
-        'keyPhrases': ['InheritedWidget', 'ChangeNotifier', 'context', 'streams', 'BLoC', 'unidirectional', 'Riverpod', 'dependency injection'],
+        'question': 'How do you handle state management in a large-scale Flutter application?',
+        'idealAnswer': 'Using Provider, BLoC, or Riverpod to separate logic from UI.',
+        'keyPhrases': ['Provider', 'BLoC', 'Riverpod', 'separation of concerns'],
         'skill': 'Flutter',
         'difficulty': 'advanced',
-        'category': 'technical',
-        'facialExpression': 'smile',
-        'avatarAnimation': 'Talking_2',
+        'category': 'Architecture',
+      },
+      {
+        'id': 'fl_004',
+        'question': 'What are some ways to optimize Flutter app performance?',
+        'idealAnswer': 'Use const constructors, avoid heavy builds, use RepaintBoundary.',
+        'keyPhrases': ['const', 'RepaintBoundary', 'profiling'],
+        'skill': 'Flutter',
+        'difficulty': 'advanced',
+        'category': 'Performance',
       },
     ],
-    'dart': [
+    'javascript': [
       {
-        'id': 'dt_001',
-        'question': 'What are Futures and Streams in Dart? Explain async/await and how you handle errors.',
-        'idealAnswer': 'A Future represents a single asynchronous value that will be available at some point. A Stream is a sequence of asynchronous events over time. async/await makes asynchronous code look synchronous — await pauses execution until the Future completes. Error handling uses try-catch with await, or .catchError() on a Future chain. Streams can be listened to with await for loops and support transformations via map, where, and expand operators.',
-        'keyPhrases': ['Future', 'Stream', 'async', 'await', 'try-catch', 'asynchronous', 'catchError'],
-        'skill': 'Dart',
+        'id': 'js_001',
+        'question': 'What is the difference between "==" and "===" in JavaScript?',
+        'idealAnswer': '== performs type coercion, while === checks both value and type.',
+        'keyPhrases': ['coercion', 'value', 'type'],
+        'skill': 'JavaScript',
+        'difficulty': 'beginner',
+        'category': 'Technical',
+      },
+      {
+        'id': 'js_002',
+        'question': 'Explain closures in JavaScript and provide a use case.',
+        'idealAnswer': 'A closure is a function that remembers its outer variables even after the outer function has returned.',
+        'keyPhrases': ['outer scope', 'encapsulation'],
+        'skill': 'JavaScript',
         'difficulty': 'intermediate',
-        'category': 'technical',
-        'facialExpression': 'curious',
-        'avatarAnimation': 'Talking_0',
+        'category': 'Technical',
+      },
+      {
+        'id': 'js_003',
+        'question': 'What is the Event Loop in JavaScript?',
+        'idealAnswer': 'The mechanism that handles asynchronous callbacks in a single-threaded environment.',
+        'keyPhrases': ['call stack', 'callback queue', 'microtasks'],
+        'skill': 'JavaScript',
+        'difficulty': 'advanced',
+        'category': 'Technical',
       },
     ],
-    'firebase': [
+    'python': [
       {
-        'id': 'fb_001',
-        'question': 'How does Firestore real-time listening work and what are its performance considerations?',
-        'idealAnswer': 'Firestore uses persistent WebSocket connections to push document and collection changes to clients in real-time. You attach a listener using snapshots() stream in Flutter. For performance: always detach listeners (cancel StreamSubscription) when widgets dispose, use query cursors for pagination instead of fetching large collections, index composite queries in Firebase Console, and limit listener scope to only the documents the UI currently needs. Reads are billed per document, so avoid over-fetching.',
-        'keyPhrases': ['WebSocket', 'snapshots', 'StreamSubscription', 'cancel', 'pagination', 'composite index', 'query cursors', 'billing'],
-        'skill': 'Firebase',
+        'id': 'py_001',
+        'question': 'What is the difference between a list and a tuple in Python?',
+        'idealAnswer': 'Lists are mutable, while tuples are immutable.',
+        'keyPhrases': ['mutable', 'immutable'],
+        'skill': 'Python',
+        'difficulty': 'beginner',
+        'category': 'Technical',
+      },
+      {
+        'id': 'py_002',
+        'question': 'Explain decorators in Python.',
+        'idealAnswer': 'Decorators are a way to modify the behavior of a function or class.',
+        'keyPhrases': ['wrapper', 'meta-programming'],
+        'skill': 'Python',
         'difficulty': 'intermediate',
-        'category': 'technical',
-        'facialExpression': 'smile',
-        'avatarAnimation': 'Talking_1',
+        'category': 'Technical',
+      },
+    ],
+    'developer': [
+      {
+        'id': 'dev_001',
+        'question': 'What is your preferred development workflow and why?',
+        'idealAnswer': 'I prefer using Git-flow with continuous integration and peer reviews.',
+        'keyPhrases': ['Git-flow', 'CI/CD', 'Code Review'],
+        'skill': 'Development',
+        'difficulty': 'intermediate',
+        'category': 'Role',
+      },
+      {
+        'id': 'dev_002',
+        'question': 'How do you stay up-to-date with new technologies?',
+        'idealAnswer': 'I follow tech blogs, attend webinars, and work on side projects.',
+        'keyPhrases': ['continuous learning', 'side projects'],
+        'skill': 'Learning',
+        'difficulty': 'beginner',
+        'category': 'Role',
+      },
+    ],
+    'engineer': [
+      {
+        'id': 'eng_001',
+        'question': 'How do you approach system design for scalability?',
+        'idealAnswer': 'I look for bottlenecks, use load balancing, and ensure statelessness.',
+        'keyPhrases': ['scalability', 'load balancing', 'bottlenecks'],
+        'skill': 'System Design',
+        'difficulty': 'advanced',
+        'category': 'Role',
       },
     ],
     'general': [
       {
         'id': 'gen_001',
         'question': 'Tell me about a challenging technical problem you faced and how you solved it.',
-        'idealAnswer': 'A strong answer uses the STAR format: Situation (context of the project), Task (your specific responsibility), Action (the exact steps you took — debugging approach, tools used, colleagues consulted), and Result (measurable outcome — time saved, bugs fixed, performance improved). Emphasize your problem-solving process: how you isolated the issue, what you tried first, how you adapted when that failed, and what you learned.',
-        'keyPhrases': ['STAR', 'situation', 'task', 'action', 'result', 'problem-solving', 'debugging', 'outcome'],
-        'skill': 'Behavioral',
+        'idealAnswer': 'I once had a memory leak in a production app and used profiling tools to find it.',
+        'keyPhrases': ['STAR', 'problem-solving', 'debugging'],
+        'skill': 'Problem Solving',
         'difficulty': 'intermediate',
-        'category': 'behavioral',
-        'facialExpression': 'curious',
-        'avatarAnimation': 'Talking_2',
+        'category': 'Behavioral',
       },
       {
         'id': 'gen_002',
-        'question': 'How do you approach learning a new technology or framework quickly?',
-        'idealAnswer': 'Effective rapid learning follows a sequence: start with the official documentation overview to understand the mental model, then build a minimal working project (not just copy tutorials), identify the three most common patterns used in production, read source code of popular open-source projects using the technology, and deliberately practice edge cases. Teaching concepts back by writing a blog post or explaining to a teammate accelerates retention. Time-box exploration to avoid rabbit holes.',
-        'keyPhrases': ['documentation', 'minimal project', 'patterns', 'source code', 'deliberate practice', 'teaching', 'time-box'],
-        'skill': 'Behavioral',
+        'question': 'Where do you see yourself in five years?',
+        'idealAnswer': 'I hope to be in a senior role contributing to high-impact projects.',
+        'keyPhrases': ['growth', 'contribution'],
+        'skill': 'Career',
         'difficulty': 'beginner',
-        'category': 'behavioral',
-        'facialExpression': 'smile',
-        'avatarAnimation': 'Talking_0',
+        'category': 'Behavioral',
       },
-    ],
-    'rest_api': [
       {
-        'id': 'api_001',
-        'question': 'Explain REST API principles and how you handle authentication in a Flutter app.',
-        'idealAnswer': 'REST (Representational State Transfer) is stateless — each request must contain all information needed to process it. Key constraints: uniform interface (standard HTTP verbs GET/POST/PUT/DELETE), statelessness, client-server separation, cacheability, and layered system. In Flutter, authentication is typically handled with JWT tokens: the login endpoint returns an access token and refresh token; the access token is stored in flutter_secure_storage (not SharedPreferences, which is insecure); every subsequent request includes Authorization: Bearer <token> in headers; the Dio interceptor automatically refreshes expired tokens using the refresh token.',
-        'keyPhrases': ['stateless', 'GET', 'POST', 'PUT', 'DELETE', 'JWT', 'access token', 'refresh token', 'flutter_secure_storage', 'interceptor', 'Authorization header'],
-        'skill': 'REST APIs',
+        'id': 'gen_003',
+        'question': 'How do you handle tight deadlines?',
+        'idealAnswer': 'I prioritize tasks and communicate early if there are risks.',
+        'keyPhrases': ['prioritization', 'communication'],
+        'skill': 'Time Management',
         'difficulty': 'intermediate',
-        'category': 'technical',
-        'facialExpression': 'smile',
-        'avatarAnimation': 'Talking_1',
+        'category': 'Behavioral',
       },
-    ],
-    'oop': [
       {
-        'id': 'oop_001',
-        'question': 'Explain the four pillars of OOP with Dart examples.',
-        'idealAnswer': 'Encapsulation: bundling data and methods, hiding internals with private fields (underscore prefix in Dart). Abstraction: exposing only necessary interfaces via abstract classes or interfaces. Inheritance: a class extending another to reuse and override behavior (extends keyword in Dart). Polymorphism: the same interface behaving differently — method overriding, or implementing the same interface in multiple classes. In Dart, mixins add another form of code reuse without inheritance hierarchy.',
-        'keyPhrases': ['encapsulation', 'abstraction', 'inheritance', 'polymorphism', 'abstract', 'extends', 'override', 'mixin', 'private'],
-        'skill': 'OOP',
+        'id': 'gen_004',
+        'question': 'What are your greatest strengths and weaknesses?',
+        'idealAnswer': 'My strength is adaptability, and my weakness is perfectionism.',
+        'keyPhrases': ['adaptability', 'perfectionism'],
+        'skill': 'General',
         'difficulty': 'beginner',
-        'category': 'technical',
-        'facialExpression': 'smile',
-        'avatarAnimation': 'Talking_0',
+        'category': 'Behavioral',
       },
     ],
   };
 
-  /// Fetches questions from RAG backend. Falls back to built-in bank if backend unavailable.
   Future<List<InterviewQuestion>> getQuestionsForSession({
     required String jobRole,
+    required String jobDescription,
     required List<String> userSkills,
-    int count = 7,
+    int count = 4,
   }) async {
     // Try RAG backend first
     try {
-      return await _fetchFromBackend(jobRole: jobRole, skills: userSkills, count: count);
+      final questions = await _fetchFromBackend(
+        jobRole: jobRole,
+        jobDescription: jobDescription,
+        skills: userSkills,
+        count: count,
+      );
+      
+      if (questions.isNotEmpty) {
+        debugPrint('[RagQuestionService] Successfully fetched ${questions.length} questions from backend');
+        return questions;
+      }
+      debugPrint('[RagQuestionService] Backend returned 0 questions, falling back to local bank');
     } catch (e) {
-      debugPrint('[RagQuestionService] Backend unavailable, using local bank: $e');
-      return _getFromLocalBank(skills: userSkills, count: count);
+      debugPrint('[RagQuestionService] Backend error: $e. Using local fallback.');
     }
+
+    // Fallback if backend fails or returns nothing
+    return _getFromLocalBank(
+      jobRole: jobRole,
+      skills: userSkills,
+      count: count,
+    );
   }
 
   Future<List<InterviewQuestion>> _fetchFromBackend({
     required String jobRole,
+    required String jobDescription,
     required List<String> skills,
     required int count,
   }) async {
-    final response = await http.post(
-      Uri.parse('$_backendUrl/generateInterviewQuestions'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'jobRole': jobRole,
-        'skills': skills,
-        'count': count,
-        'sessionId': 'session_${DateTime.now().millisecondsSinceEpoch}',
-      }),
-    ).timeout(const Duration(seconds: 8));
+    final response = await http
+        .post(
+          Uri.parse('$_backendUrl/generateInterviewQuestions'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'jobRole': jobRole,
+            'jobDescription': jobDescription,
+            'skills': skills,
+            'count': count,
+            'sessionId': 'session_${DateTime.now().millisecondsSinceEpoch}',
+          }),
+        )
+        .timeout(const Duration(seconds: 15)); // Increased timeout for AI generation
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final List<dynamic> questionsJson = data['questions'] ?? [];
-      return questionsJson.map((q) => InterviewQuestion.fromJson(q)).toList();
+      final result = questionsJson.map((q) => InterviewQuestion.fromJson(q)).toList();
+      return result.take(count).toList(); // Ensure we don't exceed count
     }
     throw Exception('Backend returned ${response.statusCode}');
   }
 
   List<InterviewQuestion> _getFromLocalBank({
+    required String jobRole,
     required List<String> skills,
     required int count,
   }) {
     final List<InterviewQuestion> selected = [];
 
-    // Map user skills to question bank keys
-    final skillKeys = _mapSkillsToKeys(skills);
+    // 1. Pick 2 questions based on Job Role (Job Name/Description context)
+    final jobKeywords = jobRole.toLowerCase().split(' ');
+    final jobQuestions = <Map<String, dynamic>>[];
+    
+    for (final word in jobKeywords) {
+      final questions = _questionBank[word] ?? [];
+      jobQuestions.addAll(questions);
+    }
+    
+    if (jobQuestions.isEmpty) {
+      jobQuestions.addAll(_questionBank['general'] ?? []);
+    }
+    
+    jobQuestions.shuffle();
+    for (var i = 0; i < (count ~/ 2) && i < jobQuestions.length; i++) {
+      selected.add(InterviewQuestion.fromJson({
+        'id': jobQuestions[i]['id'] ?? 'job_${i}_${DateTime.now().millisecondsSinceEpoch}',
+        'questionText': jobQuestions[i]['question'],
+        'idealAnswer': jobQuestions[i]['idealAnswer'],
+        'skill': jobQuestions[i]['skill'],
+        'category': jobQuestions[i]['category'],
+        'difficulty': jobQuestions[i]['difficulty'],
+        'ragConfidence': 0.88
+      }));
+    }
 
-    // Pick questions per skill
+    // 2. Pick 2 questions based on Skills (Resume context)
+    final skillKeys = _mapSkillsToKeys(skills);
+    final skillQuestions = <Map<String, dynamic>>[];
+    
     for (final key in skillKeys) {
       final questions = _questionBank[key] ?? [];
       for (final q in questions) {
-        if (selected.length < count) {
-          selected.add(InterviewQuestion.fromJson({...q, 'ragConfidence': 0.9}));
+        // Avoid adding the same question already selected
+        if (!selected.any((s) => s.questionText == q['question'])) {
+          skillQuestions.add(q);
         }
       }
     }
+    
+    skillQuestions.shuffle();
+    for (final q in skillQuestions) {
+      if (selected.length < count) {
+        selected.add(InterviewQuestion.fromJson({
+          'id': q['id'] ?? 'skill_${selected.length}_${DateTime.now().millisecondsSinceEpoch}',
+          'questionText': q['question'],
+          'idealAnswer': q['idealAnswer'],
+          'skill': q['skill'],
+          'category': q['category'],
+          'difficulty': q['difficulty'],
+          'ragConfidence': 0.9
+        }));
+      }
+    }
 
-    // Fill remainder with general/behavioral questions
+    // Fill remainder with general if needed
     if (selected.length < count) {
       final general = _questionBank['general'] ?? [];
+      general.shuffle();
       for (final q in general) {
-        if (selected.length < count) {
-          selected.add(InterviewQuestion.fromJson({...q, 'ragConfidence': 0.85}));
+        if (selected.length < count && !selected.any((s) => s.questionText == q['question'])) {
+          selected.add(InterviewQuestion.fromJson({
+            'id': q['id'] ?? 'gen_${selected.length}_${DateTime.now().millisecondsSinceEpoch}',
+            'questionText': q['question'],
+            'idealAnswer': q['idealAnswer'],
+            'skill': q['skill'],
+            'category': q['category'],
+            'difficulty': q['difficulty'],
+            'ragConfidence': 0.85
+          }));
         }
       }
     }
 
-    // Shuffle for variety
-    selected.shuffle();
     return selected.take(count).toList();
   }
 
   List<String> _mapSkillsToKeys(List<String> skills) {
-    final keyMap = {
+    final Map<String, String> skillMap = {
       'flutter': 'flutter',
-      'dart': 'dart',
-      'firebase': 'firebase',
-      'rest': 'rest_api',
-      'api': 'rest_api',
-      'http': 'rest_api',
-      'oop': 'oop',
-      'object': 'oop',
-      'general': 'general',
+      'dart': 'flutter',
+      'javascript': 'javascript',
+      'js': 'javascript',
+      'python': 'python',
+      'py': 'python',
+      'react': 'javascript',
+      'node': 'javascript',
     };
 
-    final keys = <String>[];
+    final List<String> keys = [];
     for (final skill in skills) {
-      final lower = skill.toLowerCase();
-      for (final entry in keyMap.entries) {
-        if (lower.contains(entry.key) && !keys.contains(entry.value)) {
-          keys.add(entry.value);
-        }
+      final normalized = skill.toLowerCase().trim();
+      if (skillMap.containsKey(normalized)) {
+        keys.add(skillMap[normalized]!);
       }
     }
-
-    if (keys.isEmpty) keys.addAll(['general', 'oop']);
-    return keys;
+    return keys.isEmpty ? ['general'] : keys;
   }
 }

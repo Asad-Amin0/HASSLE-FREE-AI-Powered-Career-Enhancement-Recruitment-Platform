@@ -14,6 +14,7 @@ class ResumeService {
     required List<String> skills,
     required String experience,
     required String education,
+    required List<String> certificates,
     required String textPreview,
     double? overallScore,
     Map<String, dynamic>? breakdown,
@@ -38,6 +39,7 @@ class ResumeService {
             'skills': skills,
             'experience': experience,
             'education': education,
+            'certificates': certificates,
             'textPreview': textPreview,
             'overallScore': overallScore,
             'breakdown': breakdown,
@@ -85,11 +87,14 @@ class ResumeService {
         .map((snapshot) => snapshot.exists ? snapshot.data() : null);
   }
 
-  // Update profile details manually
   Future<void> updateProfile({
     String? name,
     String? location,
     String? profilePictureUrl,
+    String? education,
+    String? experience,
+    List<String>? skills,
+    List<String>? certificates,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -101,6 +106,75 @@ class ResumeService {
       if (profilePictureUrl != null) {
         updateData['profilePictureUrl'] = profilePictureUrl;
       }
+      if (education != null) updateData['education'] = education;
+      if (experience != null) updateData['experience'] = experience;
+      if (skills != null) updateData['skills'] = skills;
+      if (certificates != null) updateData['certificates'] = certificates;
+
+      // Recalculate score if key fields are updated
+      if (education != null || experience != null || skills != null || certificates != null) {
+        // Fetch current data for fields not being updated
+        final current = await getLatestResumeAnalysis();
+        final finalEdu = education ?? current?['education'] ?? "";
+        final finalExp = experience ?? current?['experience'] ?? "";
+        final finalSkills = skills ?? List<String>.from(current?['skills'] ?? []);
+        final finalCerts = certificates ?? List<String>.from(current?['certificates'] ?? []);
+
+        // Heuristic Scoring logic (Total 100)
+        // Skills: 30% (1.5 points per skill, max 30)
+        // Experience: 30% (based on content, max 30)
+        // Education: 20% total
+        // - 4-year degree (BS/Bachelor): 10
+        // - 2-year degree (College/Associate): 10
+        // Certificates: 10% (max 4) or 20% (if > 4)
+        
+        double skillScore = (finalSkills.length * 1.5).clamp(0.0, 30.0);
+        double expScore = (finalExp.length / 25.0).clamp(0.0, 30.0);
+        
+        double eduScore = 0.0;
+        String eduLower = finalEdu.toLowerCase();
+        if (eduLower.contains('bachelor') || eduLower.contains('bs') || 
+            eduLower.contains('b.e') || eduLower.contains('btech')) {
+          eduScore += 10.0;
+        }
+        if (eduLower.contains('associate') || eduLower.contains('2 year') || 
+            eduLower.contains('college') || eduLower.contains('intermediate')) {
+          eduScore += 10.0;
+        }
+        // Bolster with Master/PhD if under 20
+        if (eduScore < 20 && (eduLower.contains('master') || eduLower.contains('ms ') || eduLower.contains('phd'))) {
+          eduScore = (eduScore + 5.0).clamp(0.0, 20.0);
+        }
+
+        double certScore = 0.0;
+        if (finalCerts.length > 4) {
+          certScore = (finalCerts.length * 4.0).clamp(0.0, 20.0);
+        } else {
+          certScore = (finalCerts.length * 2.5).clamp(0.0, 10.0);
+        }
+        
+        double overall = skillScore + expScore + eduScore + certScore;
+        updateData['overallScore'] = double.parse(overall.toStringAsFixed(1));
+        updateData['breakdown'] = {
+          'skills': double.parse(skillScore.toStringAsFixed(1)),
+          'experience': double.parse(expScore.toStringAsFixed(1)),
+          'education': double.parse(eduScore.toStringAsFixed(1)),
+          'certificates': double.parse(certScore.toStringAsFixed(1)),
+        };
+
+        // Update badges based on new score
+        List<String> badges = List<String>.from(current?['badges'] ?? []);
+        if (overall >= 85 && !badges.contains('Highly Employable')) {
+          badges.add('Highly Employable');
+        }
+        if (finalSkills.length >= 8 && !badges.contains('Top Skilled')) {
+          badges.add('Top Skilled');
+        }
+        if (finalCerts.isNotEmpty && !badges.contains('Certified Expert')) {
+          badges.add('Certified Expert');
+        }
+        updateData['badges'] = badges;
+      }
 
       if (updateData.isNotEmpty) {
         await _db
@@ -110,7 +184,7 @@ class ResumeService {
             .doc('latest')
             .update(updateData);
       }
-      debugPrint('Profile updated successfully');
+      debugPrint('Profile, Certificates and Score updated successfully');
     } catch (e) {
       debugPrint('Error updating profile: $e');
     }

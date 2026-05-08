@@ -59,6 +59,7 @@ def upload_resume():
             "skills": analysis_result.get("skills", []),
             "experience": analysis_result.get("experience", "Not found"),
             "education": analysis_result.get("education", "Not found"),
+            "certificates": analysis_result.get("certificates", []),
             "text_preview": analysis_result.get("text_preview", ""),
             "score": scoring_result,
             "progress": 100 

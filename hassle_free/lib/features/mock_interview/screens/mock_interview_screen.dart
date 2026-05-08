@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/interview_question.dart';
 
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../utils/navigator_utils.dart';
+
+
 import 'package:gap/gap.dart';
 import '../viewmodels/mock_interview_viewmodel.dart';
 import '../models/interview_session.dart';
@@ -11,6 +15,7 @@ import '../widgets/waveform_recorder.dart';
 import '../widgets/score_indicator.dart';
 import '../models/avatar_state.dart';
 import 'interview_results_screen.dart';
+import 'package:camera/camera.dart';
 
 class MockInterviewScreen extends StatefulWidget {
   final String userId;
@@ -18,7 +23,10 @@ class MockInterviewScreen extends StatefulWidget {
   final List<String> skills; // Pulled from user's parsed resume
   final bool isDarkMode;
   final String? jobId;
+  final String jobDescription;
+  final Map<String, dynamic>? resumeData;
   final VoidCallback? onExit;
+
 
   const MockInterviewScreen({
     super.key,
@@ -27,6 +35,8 @@ class MockInterviewScreen extends StatefulWidget {
     required this.skills,
     this.isDarkMode = true,
     this.jobId,
+    this.jobDescription = "",
+    this.resumeData,
     this.onExit,
   });
 
@@ -35,8 +45,41 @@ class MockInterviewScreen extends StatefulWidget {
   State<MockInterviewScreen> createState() => _MockInterviewScreenState();
 }
 
-class _MockInterviewScreenState extends State<MockInterviewScreen> {
+class _MockInterviewScreenState extends State<MockInterviewScreen> with WidgetsBindingObserver {
   bool _navigatedToResults = false;
+  CameraController? _cameraController;
+  bool _isCameraInitialized = false;
+  bool _isRecording = false;
+  late MockInterviewViewModel _vm;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _vm = Provider.of<MockInterviewViewModel>(context, listen: false);
+  }
+
+  Future<void> _startRecording() async {
+    if (_cameraController == null || !_isCameraInitialized || _isRecording) return;
+    try {
+      await _cameraController!.startVideoRecording();
+      setState(() => _isRecording = true);
+    } catch (e) {
+      debugPrint('Error starting recording: $e');
+    }
+  }
+
+  Future<String?> _stopRecording() async {
+    if (_cameraController == null || !_isRecording) return null;
+    try {
+      final file = await _cameraController!.stopVideoRecording();
+      setState(() => _isRecording = false);
+      debugPrint('Recording saved to: ${file.path}');
+      return file.path;
+    } catch (e) {
+      debugPrint('Error stopping recording: $e');
+      return null;
+    }
+  }
 
   Color get _bgColor => widget.isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
   Color get _textColor => widget.isDarkMode ? Colors.white : Colors.black87;
@@ -44,27 +87,99 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
   Color get _mutedText => widget.isDarkMode ? Colors.white70 : Colors.black54;
 
   @override
-
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Manual start required
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    if (_isCameraInitialized) return;
+    
+    try {
+      debugPrint('Attempting to detect cameras...');
+      List<CameraDescription> cameras = await availableCameras();
+      
+      // On Web, availableCameras() might return empty if permissions are not yet granted.
+      // We can try to wait a bit and retry once.
+      if (cameras.isEmpty) {
+        debugPrint('No cameras found, retrying in 1 second...');
+        await Future.delayed(const Duration(seconds: 1));
+        cameras = await availableCameras();
+      }
+
+      if (cameras.isEmpty) {
+        debugPrint('Still no cameras detected.');
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = false;
+          });
+        }
+        return;
+      }
+
+      
+      debugPrint('Found ${cameras.length} cameras. Selecting front camera if available.');
+      final camera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      
+      _cameraController = CameraController(
+        camera,
+        ResolutionPreset.medium,
+        enableAudio: true,
+        imageFormatGroup: kIsWeb ? null : ImageFormatGroup.jpeg,
+      );
+      
+      await _cameraController!.initialize();
+      debugPrint('CameraController initialized successfully.');
+      
+      // Give it a tiny moment to stabilize the stream
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('CRITICAL: Camera initialization failed: $e');
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _handleInterruption();
+    }
+  }
+
+  void _handleInterruption() {
+    if (!_vm.isCompleted && _vm.session != null) {
+      _vm.stopAll();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Interview stopped because you switched screens.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      _vm.endInterview();
+    }
   }
 
   @override
   void dispose() {
-    // Stop speech and listening when leaving the screen
-    // We use a safe way to access the ViewModel during dispose
-    try {
-      Provider.of<MockInterviewViewModel>(context, listen: false).stopAll();
-    } catch (e) {
-      debugPrint('Error stopping AI on dispose: $e');
-    }
+    WidgetsBinding.instance.removeObserver(this);
+    _cameraController?.dispose();
+    _vm.stopAll(notify: false);
     super.dispose();
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -72,57 +187,94 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
       backgroundColor: _bgColor,
       body: Consumer<MockInterviewViewModel>(
         builder: (context, vm, _) {
-          // Navigate to results when completed
           if (vm.isCompleted &&
               vm.session?.status == InterviewStatus.completed &&
               !_navigatedToResults) {
+            
             _navigatedToResults = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              Navigator.of(context).push(
+            
+            // Show loading overlay or handle it in the UI below
+            _stopRecording().then((path) async {
+              // Wait for the full end-to-end saving (Supabase upload + Firestore save)
+              await vm.endInterview(videoPath: path);
+              
+              if (!mounted) return;
+              
+              // ONLY navigate after we are 100% sure the data is saved
+              navigatorKey.currentState?.push(
                 MaterialPageRoute(
                   builder: (_) => InterviewResultsScreen(
                     session: vm.session!,
+                    isDarkMode: widget.isDarkMode,
                     onExit: widget.onExit,
-                    onRestart: () {
+                    onRestart: widget.jobId == null ? () {
                       setState(() => _navigatedToResults = false);
                       vm.startSession(
                         userId: widget.userId,
                         jobRole: widget.jobRole,
                         skills: widget.skills,
+                        resumeData: widget.resumeData,
                         jobId: widget.jobId,
+                        jobDescription: widget.jobDescription,
                       );
-                    },
+                    } : null,
                   ),
                 ),
               );
             });
           }
 
-          return SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(vm),
-                Expanded(
-                  child: vm.isLoading
-                      ? _buildLoading()
-                      : (vm.session == null ? _buildStartScreen(vm) : _buildInterviewBody(vm)),
+          return Stack(
+            children: [
+              SafeArea(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1000),
+                    child: Column(
+                      children: [
+                        _buildHeader(vm),
+                        Expanded(
+                          child: vm.isLoading 
+                            ? _buildLoading() 
+                            : (vm.session == null ? _buildStartScreen(vm) : _buildInterviewLayout(vm)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              ),
+              if (vm.isLoading && vm.isCompleted)
+                Container(
+                  color: Colors.black54,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(color: Color(0xFF4F46E5)),
+                        const Gap(20),
+                        const Text(
+                          'Saving your interview recording\nand results to Supabase...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           );
+
         },
       ),
     );
   }
 
-  // ─── Header ───────────────────────────────────────────────────────────────
   Widget _buildHeader(MockInterviewViewModel vm) {
     final session = vm.session;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          // Close button
           GestureDetector(
             onTap: () => _confirmExit(context),
             child: Container(
@@ -135,8 +287,6 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Job role
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,21 +307,17 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
               ],
             ),
           ),
-
-          // End Interview button
           if (session != null && session.status != InterviewStatus.completed)
             TextButton.icon(
               onPressed: () => _confirmEndInterview(vm),
-              icon: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent, size: 18),
-              label: const Text('End', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              icon: Icon(_isRecording ? Icons.videocam_off : Icons.stop_circle_outlined, color: Colors.redAccent, size: 18),
+              label: Text(_isRecording ? 'Stop recording' : 'End', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
               style: TextButton.styleFrom(
                 backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           const SizedBox(width: 8),
-
-          // Points
           if (session != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -194,7 +340,6 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     );
   }
 
-  // ─── Start Screen ──────────────────────────────────────────────────────────
   Widget _buildStartScreen(MockInterviewViewModel vm) {
     return Center(
       child: SingleChildScrollView(
@@ -216,6 +361,28 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _textColor),
             ),
             const Gap(16),
+            if (vm.error != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, color: Colors.redAccent),
+                    const Gap(12),
+                    Expanded(
+                      child: Text(
+                        vm.error!,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().shake(),
             Text(
               'Your AI interviewer is ready to evaluate your skills in ${widget.jobRole}.',
               textAlign: TextAlign.center,
@@ -223,14 +390,38 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
             ),
             const Gap(40),
             SizedBox(
-              width: 240,
+              width: 280,
               height: 60,
               child: ElevatedButton(
-                onPressed: () => vm.startSession(
-                  userId: widget.userId,
-                  jobRole: widget.jobRole,
-                  skills: widget.skills,
-                ),
+                onPressed: () async {
+                  // Try to initialize if not already done
+                  if (!_isCameraInitialized) {
+                    await _initializeCamera();
+                  }
+
+                  if (!mounted) return;
+
+                  if (!_isCameraInitialized) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Camera unavailable. Proceeding with audio-only interview.'),
+                        backgroundColor: Colors.orange,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+
+                  vm.startSession(
+                    userId: widget.userId,
+                    jobRole: widget.jobRole,
+                    skills: widget.skills,
+                    resumeData: widget.resumeData,
+                    jobId: widget.jobId,
+                    jobDescription: widget.jobDescription,
+                  );
+
+                  _startRecording();
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4F46E5),
                   foregroundColor: Colors.white,
@@ -241,9 +432,9 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.play_arrow_rounded),
+                    Icon(Icons.video_call_rounded),
                     Gap(8),
-                    Text('Start Interview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('Start Video Interview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -259,7 +450,6 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, curve: Curves.easeOut);
   }
 
-  // ─── Loading ──────────────────────────────────────────────────────────────
   Widget _buildLoading() {
     return Center(
       child: Column(
@@ -277,7 +467,142 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     );
   }
 
-  // ─── Interview Body ────────────────────────────────────────────────────────
+  Widget _buildInterviewLayout(MockInterviewViewModel vm) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+      child: Column(
+        children: [
+          _buildProgressBar(vm),
+          const Gap(24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final bool isSmall = box.maxWidth < 600;
+                return AspectRatio(
+                  aspectRatio: isSmall ? 1 / 1.2 : 16 / 6,
+                  child: isSmall 
+                    ? Column(
+                        children: [
+                          Expanded(child: _buildAvatar(vm)),
+                          const Gap(12),
+                          Expanded(child: _buildCameraPreview()),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _buildAvatar(vm)),
+                          const Gap(16),
+                          Expanded(child: _buildCameraPreview()),
+                        ],
+                      ),
+                );
+              }
+            ),
+          ),
+          const Gap(24),
+          _buildInterviewBody(vm),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    if (!_isCameraInitialized || _cameraController == null || !_cameraController!.value.isInitialized) {
+      return Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _cardBorder),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.videocam_off_rounded, color: Colors.white24, size: 48),
+              SizedBox(height: 12),
+              Text('Camera Offline', style: TextStyle(color: Colors.white24, fontSize: 14)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+        color: Colors.black,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
+              child: AspectRatio(
+                aspectRatio: _cameraController!.value.aspectRatio,
+                child: CameraPreview(_cameraController!),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              left: 16,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6, height: 6,
+                        decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('Live', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+
+            if (_isRecording)
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                      ).animate(onPlay: (c) => c.repeat(reverse: true)).fadeOut(duration: 500.ms),
+                      const SizedBox(width: 8),
+                      const Text('REC', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   Widget _buildInterviewBody(MockInterviewViewModel vm) {
     if (vm.error != null) {
       return Center(
@@ -288,18 +613,10 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
             children: [
               const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
               const SizedBox(height: 16),
-              Text(
-                vm.error!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _textColor, fontSize: 14),
-              ),
+              Text(vm.error!, textAlign: TextAlign.center, style: TextStyle(color: _textColor)),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => vm.startSession(
-                  userId: widget.userId,
-                  jobRole: widget.jobRole,
-                  skills: widget.skills,
-                ),
+                onPressed: () => vm.startSession(userId: widget.userId, jobRole: widget.jobRole, skills: widget.skills),
                 child: const Text('Try Again'),
               ),
             ],
@@ -308,128 +625,104 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
       );
     }
 
-    return SingleChildScrollView(
-
-      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      child: Column(
-        children: [
-          // Progress bar
-          _buildProgressBar(vm),
-          const Gap(12),
-
-          // 3D Avatar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Selector<MockInterviewViewModel, (AvatarState, ValueNotifier<String>)>(
-              selector: (_, vm) => (vm.avatarState, vm.phonemeNotifier),
-              builder: (context, data, _) {
-                return Avatar3DWidget(
-                  avatarState: data.$1,
-                  phonemeNotifier: data.$2,
-                );
-              },
-            ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
-          ),
-          const Gap(20),
-
-          // Avatar's current text (subtitle)
-          if (vm.avatarState.currentText.isNotEmpty)
-            _buildSubtitle(vm.avatarState.currentText),
-
-          const Gap(12),
-
-          // Current question card
-          if (vm.currentQuestion != null) ...[
-            _buildQuestionCard(vm.currentQuestion!),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isWeb = constraints.maxWidth > 700;
+        return Column(
+          children: [
+            if (vm.avatarState.currentText.isNotEmpty) _buildSubtitle(vm.avatarState.currentText),
             const Gap(12),
-          ],
-
-          // Score result
-          if (vm.lastResult != null && vm.session?.status != InterviewStatus.userAnswering) ...[
-            ScoreIndicator(result: vm.lastResult!).animate().slideY(
-
-
-              begin: 0.2,
-              duration: 500.ms,
-              curve: Curves.easeOut,
-            ),
-            const Gap(8),
-          ],
-
-          // Voice recorder
-          if (vm.session?.status == InterviewStatus.userAnswering) ...[
-            WaveformRecorder(
-              isListening: vm.isListening,
-              transcript: vm.partialTranscript.isNotEmpty
-                  ? vm.partialTranscript
-                  : vm.finalTranscript,
-              onStop: () => vm.stopListening(),
-              onSkip: () => vm.skipQuestion(),
-              onRetry: () => vm.retryListening(),
-            ).animate().fadeIn(duration: 400.ms),
-            const Gap(16),
-            
-            // Countdown Timer Badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: (vm.remainingSeconds <= 5 ? Colors.redAccent : _textColor).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: (vm.remainingSeconds <= 5 ? Colors.redAccent : const Color(0xFF4F46E5)).withValues(alpha: 0.3),
+            if (isWeb && vm.lastResult != null && vm.session?.status != InterviewStatus.userAnswering)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (vm.currentQuestion != null)
+                      Expanded(child: _buildQuestionCard(vm.currentQuestion!, horizontalMargin: 0)),
+                    const Gap(16),
+                    Expanded(child: ScoreIndicator(result: vm.lastResult!, margin: 0)),
+                  ],
+                ),
+              )
+            else ...[
+              if (vm.currentQuestion != null) _buildQuestionCard(vm.currentQuestion!),
+              const Gap(12),
+              if (vm.lastResult != null && vm.session?.status != InterviewStatus.userAnswering)
+                ScoreIndicator(result: vm.lastResult!).animate().slideY(
+                  begin: 0.2, duration: 500.ms, curve: Curves.easeOut,
+                ),
+            ],
+            if (vm.session?.status == InterviewStatus.userAnswering) ...[
+              WaveformRecorder(
+                isListening: vm.isListening,
+                transcript: vm.partialTranscript.isNotEmpty ? vm.partialTranscript : vm.finalTranscript,
+                onStop: () => vm.stopListening(),
+                onSkip: () => vm.skipQuestion(),
+                onRetry: () => vm.retryListening(),
+              ).animate().fadeIn(duration: 400.ms),
+              const Gap(16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (vm.remainingSeconds <= 5 ? Colors.redAccent : _textColor).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (vm.remainingSeconds <= 5 ? Colors.redAccent : const Color(0xFF4F46E5)).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 18,
+                      color: vm.remainingSeconds <= 5 ? Colors.redAccent : const Color(0xFF4F46E5),
+                    ),
+                    const Gap(8),
+                    Text(
+                      'Time remaining: ${vm.remainingSeconds}s',
+                      style: TextStyle(
+                        color: vm.remainingSeconds <= 5 ? Colors.redAccent : _textColor,
+                        fontWeight: FontWeight.bold, fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate(target: vm.remainingSeconds <= 5 ? 1 : 0).shake(hz: 4, curve: Curves.easeInOut),
+              const Gap(8),
+            ],
+            if (vm.isEvaluating)
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(color: Color(0xFF4F46E5), strokeWidth: 2),
+                    ),
+                    const Gap(12),
+                    Text('Evaluating your answer...', style: TextStyle(color: _mutedText)),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    size: 18,
-                    color: vm.remainingSeconds <= 5 ? Colors.redAccent : const Color(0xFF4F46E5),
-                  ),
-                  const Gap(8),
-                  Text(
-                    'Time remaining: ${vm.remainingSeconds}s',
-                    style: TextStyle(
-                      color: vm.remainingSeconds <= 5 ? Colors.redAccent : _textColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ).animate(target: vm.remainingSeconds <= 5 ? 1 : 0).shake(hz: 4, curve: Curves.easeInOut),
-            const Gap(8),
+            const Gap(20),
           ],
-
-          // Evaluating spinner
-          if (vm.isEvaluating)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF4F46E5),
-                      strokeWidth: 2,
-                    ),
-                  ),
-                  const Gap(12),
-                  Text('Evaluating your answer...', style: TextStyle(color: _mutedText)),
-                ],
-              ),
-            ),
-
-          const Gap(20),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // ─── Progress Bar ─────────────────────────────────────────────────────────
+  Widget _buildAvatar(MockInterviewViewModel vm) {
+    return Selector<MockInterviewViewModel, (AvatarState, ValueNotifier<String>)>(
+      selector: (_, vm) => (vm.avatarState, vm.phonemeNotifier),
+      builder: (context, data, _) {
+        return Avatar3DWidget(avatarState: data.$1, phonemeNotifier: data.$2);
+      },
+    ).animate().scale(duration: 500.ms, curve: Curves.elasticOut);
+  }
+
   Widget _buildProgressBar(MockInterviewViewModel vm) {
     final progress = vm.session?.progressPercent ?? 0;
     return Padding(
@@ -437,53 +730,46 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: LinearProgressIndicator(
-          value: progress,
-          minHeight: 4,
-          backgroundColor: _cardBorder,
+          value: progress, minHeight: 4, backgroundColor: _cardBorder,
           valueColor: const AlwaysStoppedAnimation(Color(0xFF4F46E5)),
         ),
       ),
     );
   }
 
-  // ─── Subtitle ─────────────────────────────────────────────────────────────
   Widget _buildSubtitle(String text) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
+        constraints: const BoxConstraints(maxHeight: 120),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: _textColor.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _cardBorder),
         ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            height: 1.5,
+        child: SingleChildScrollView(
+          child: Text(
+            text, textAlign: TextAlign.center,
+            style: TextStyle(color: _textColor, fontSize: 14, height: 1.5),
           ),
         ),
       ),
     );
   }
 
-  // ─── Question Card ────────────────────────────────────────────────────────
-  Widget _buildQuestionCard(InterviewQuestion q) {
+  Widget _buildQuestionCard(InterviewQuestion q, {double horizontalMargin = 20}) {
     return Padding(
-
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
             colors: [
               const Color(0xFF4F46E5).withValues(alpha: 0.15),
-              const Color(0xFF1E293B),
+              widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
             ],
           ),
           borderRadius: BorderRadius.circular(20),
@@ -502,18 +788,10 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
             const Gap(12),
             Text(
               q.questionText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-              ),
+              style: TextStyle(color: _textColor, fontSize: 16, fontWeight: FontWeight.w600, height: 1.5),
             ),
             const Gap(8),
-            Text(
-              'Category: ${q.category}',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
-            ),
+            Text('Category: ${q.category}', style: TextStyle(color: _mutedText, fontSize: 11)),
           ],
         ),
       ),
@@ -524,21 +802,19 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('End Interview?', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        title: Text('End Interview?', style: TextStyle(color: _textColor)),
+        content: Text(
           'Are you sure you want to end the interview now? You will see results for the questions you have completed.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: _mutedText),
         ),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Continue Interview')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Continue Interview'),
-          ),
-          TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              vm.endInterview();
+              final path = await _stopRecording();
+              vm.endInterview(videoPath: path);
             },
             child: const Text('End Now', style: TextStyle(color: Colors.redAccent)),
           ),
@@ -551,29 +827,23 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     showDialog(
       context: ctx,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Exit Interview?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Your progress will be lost.',
-          style: TextStyle(color: Colors.white70),
-        ),
+        backgroundColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        title: Text('Exit Interview?', style: TextStyle(color: _textColor)),
+        content: Text('Your progress will be lost.', style: TextStyle(color: _mutedText)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
             onPressed: () {
-              Navigator.pop(ctx); // Close dialog
+              Navigator.pop(context);
+              _vm.stopAll(notify: false);
               if (widget.onExit != null) {
-                widget.onExit!();
+                widget.onExit!(); 
               } else {
-                Navigator.pop(context); // Fallback to pop screen
+                Navigator.of(context).popUntil((r) => r.isFirst);
               }
             },
             child: const Text('Exit', style: TextStyle(color: Colors.redAccent)),
           ),
-
         ],
       ),
     );
@@ -583,7 +853,6 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
 class _SkillBadge extends StatelessWidget {
   final String skill;
   const _SkillBadge({required this.skill});
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -600,21 +869,16 @@ class _SkillBadge extends StatelessWidget {
 class _DifficultyBadge extends StatelessWidget {
   final String difficulty;
   const _DifficultyBadge({required this.difficulty});
-
   Color get _color => switch (difficulty) {
     'advanced' => const Color(0xFFFF6B6B),
     'intermediate' => const Color(0xFFFFD700),
     _ => const Color(0xFF00C896),
   };
-
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: _color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
       child: Text(
         difficulty[0].toUpperCase() + difficulty.substring(1),
         style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.w600),

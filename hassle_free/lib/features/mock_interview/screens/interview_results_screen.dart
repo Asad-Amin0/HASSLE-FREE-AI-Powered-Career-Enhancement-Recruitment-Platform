@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:gap/gap.dart';
@@ -10,13 +12,20 @@ class InterviewResultsScreen extends StatelessWidget {
   final VoidCallback? onExit;
   final VoidCallback? onRestart;
 
+  final bool isDarkMode;
+
   const InterviewResultsScreen({
     super.key,
     required this.session,
+    this.isDarkMode = true,
     this.onExit,
     this.onRestart,
   });
 
+  Color get _bgColor =>
+      isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+  Color get _textColor => isDarkMode ? Colors.white : Colors.black87;
+  Color get _mutedText => isDarkMode ? Colors.white70 : Colors.black54;
 
   Color get _overallColor {
     final s = session.overallScore;
@@ -36,7 +45,7 @@ class InterviewResultsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: _bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -62,12 +71,14 @@ class InterviewResultsScreen extends StatelessWidget {
                     ),
                     Text(
                       _overallGrade,
-                      style: const TextStyle(color: Colors.white60, fontSize: 12),
+                      style: TextStyle(color: _mutedText, fontSize: 12),
                     ),
                   ],
                 ),
                 progressColor: _overallColor,
-                backgroundColor: Colors.white10,
+                backgroundColor: isDarkMode
+                    ? Colors.white10
+                    : Colors.black.withValues(alpha: 0.05),
                 circularStrokeCap: CircularStrokeCap.round,
               ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
 
@@ -75,16 +86,12 @@ class InterviewResultsScreen extends StatelessWidget {
 
               const Text(
                 'Interview Complete!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const Gap(6),
               Text(
                 '${session.jobRole} • ${session.totalQuestions} Questions • ${session.totalPoints} Points',
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+                style: TextStyle(color: _mutedText, fontSize: 13),
               ),
 
               const Gap(28),
@@ -94,31 +101,40 @@ class InterviewResultsScreen extends StatelessWidget {
                 children: [
                   _StatCard(
                     label: 'Passed',
-                    value: session.results.where((r) => r.passed).length.toString(),
+                    value: session.results
+                        .where((r) => r.passed)
+                        .length
+                        .toString(),
                     color: const Color(0xFF00C896),
+                    isDarkMode: isDarkMode,
                   ),
                   const Gap(12),
                   _StatCard(
                     label: 'Needs Work',
-                    value: session.results.where((r) => !r.passed).length.toString(),
+                    value: session.results
+                        .where((r) => !r.passed)
+                        .length
+                        .toString(),
                     color: const Color(0xFFFF6B6B),
+                    isDarkMode: isDarkMode,
                   ),
                   const Gap(12),
                   _StatCard(
                     label: 'Total Points',
                     value: '${session.totalPoints}',
                     color: const Color(0xFF4F46E5),
+                    isDarkMode: isDarkMode,
                   ),
                 ],
               ),
 
               const Gap(28),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Question Review',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: _textColor,
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
@@ -130,9 +146,17 @@ class InterviewResultsScreen extends StatelessWidget {
               ...session.results.asMap().entries.map((entry) {
                 final i = entry.key;
                 final result = entry.value;
-                return _QuestionReviewCard(index: i, result: result)
+                return _QuestionReviewCard(
+                      index: i,
+                      result: result,
+                      isDarkMode: isDarkMode,
+                    )
                     .animate(delay: (100 * i).ms)
-                    .slideY(begin: 0.2, duration: 400.ms, curve: Curves.easeOut);
+                    .slideY(
+                      begin: 0.2,
+                      duration: 400.ms,
+                      curve: Curves.easeOut,
+                    );
               }),
 
               const Gap(28),
@@ -145,51 +169,67 @@ class InterviewResultsScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
+                        debugPrint('Back to Dashboard button pressed');
+                        
+                        // Simple pop to return to the dashboard screen (which is hosting the interview flow)
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        }
+                        
+                        // Trigger the exit callback to reset the dashboard index
                         if (onExit != null) {
-                          Navigator.of(context).pop(); // Go back to session screen (which will then trigger onExit if needed)
                           onExit!();
-                        } else {
-                          Navigator.of(context).popUntil((r) => r.isFirst);
                         }
                       },
+
+
+
+
+
+
+
                       icon: const Icon(Icons.home_rounded),
                       label: const Text('Back to Dashboard'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4F46E5),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-
 
               const Gap(12),
 
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        if (onRestart != null) onRestart!();
-                      },
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Practice Again'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF4F46E5),
-                        side: const BorderSide(color: Color(0xFF4F46E5)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              if (onRestart != null)
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onRestart!();
+                        },
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Practice Again'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4F46E5),
+                          side: const BorderSide(color: Color(0xFF4F46E5)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
 
               const Gap(20),
@@ -206,7 +246,14 @@ class _StatCard extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _StatCard({required this.label, required this.value, required this.color});
+  final bool isDarkMode;
+
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.isDarkMode,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -220,9 +267,22 @@ class _StatCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(value, style: TextStyle(color: color, fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const Gap(4),
-            Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+            Text(
+              label,
+              style: TextStyle(
+                color: isDarkMode ? Colors.white60 : Colors.black54,
+                fontSize: 11,
+              ),
+            ),
           ],
         ),
       ),
@@ -233,7 +293,12 @@ class _StatCard extends StatelessWidget {
 class _QuestionReviewCard extends StatefulWidget {
   final int index;
   final InterviewResult result;
-  const _QuestionReviewCard({required this.index, required this.result});
+  final bool isDarkMode;
+  const _QuestionReviewCard({
+    required this.index,
+    required this.result,
+    required this.isDarkMode,
+  });
 
   @override
   State<_QuestionReviewCard> createState() => _QuestionReviewCardState();
@@ -244,16 +309,31 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.result.passed ? const Color(0xFF00C896) : const Color(0xFFFF6B6B);
+    final color = widget.result.passed
+        ? const Color(0xFF00C896)
+        : const Color(0xFFFF6B6B);
 
     return GestureDetector(
       onTap: () => setState(() => _expanded = !_expanded),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: widget.isDarkMode
+                ? color.withValues(alpha: 0.3)
+                : color.withValues(alpha: 0.5),
+          ),
+          boxShadow: widget.isDarkMode
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Column(
           children: [
@@ -266,14 +346,23 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                     backgroundColor: color.withValues(alpha: 0.2),
                     child: Text(
                       '${widget.index + 1}',
-                      style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   const Gap(12),
                   Expanded(
                     child: Text(
                       widget.result.questionText,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: TextStyle(
+                        color: widget.isDarkMode
+                            ? Colors.white
+                            : Colors.black87,
+                        fontSize: 13,
+                      ),
                       maxLines: _expanded ? null : 2,
                       overflow: _expanded ? null : TextOverflow.ellipsis,
                     ),
@@ -298,14 +387,41 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Label('Your Answer:'),
-                    Text(widget.result.userAnswer, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
+                    _Label('Your Answer:', isDarkMode: widget.isDarkMode),
+                    Text(
+                      widget.result.userAnswer,
+                      style: TextStyle(
+                        color: widget.isDarkMode
+                            ? Colors.white70
+                            : Colors.black54,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
                     const Gap(10),
-                    const _Label('Ideal Answer:'),
-                    Text(widget.result.idealAnswer, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
+                    _Label('Ideal Answer:', isDarkMode: widget.isDarkMode),
+                    Text(
+                      widget.result.idealAnswer,
+                      style: TextStyle(
+                        color: widget.isDarkMode
+                            ? Colors.white70
+                            : Colors.black54,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
                     const Gap(10),
-                    const _Label('Feedback:'),
-                    Text(widget.result.feedback, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
+                    _Label('Feedback:', isDarkMode: widget.isDarkMode),
+                    Text(
+                      widget.result.feedback,
+                      style: TextStyle(
+                        color: widget.isDarkMode
+                            ? Colors.white70
+                            : Colors.black54,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -319,10 +435,18 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
 
 class _Label extends StatelessWidget {
   final String text;
-  const _Label(this.text);
+  final bool isDarkMode;
+  const _Label(this.text, {required this.isDarkMode});
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 4),
-    child: Text(text, style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600)),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: isDarkMode ? Colors.white38 : Colors.black38,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
   );
 }

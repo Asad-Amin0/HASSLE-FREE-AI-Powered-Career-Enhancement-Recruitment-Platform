@@ -15,6 +15,7 @@ class InterviewSession {
   int totalPoints;
   DateTime startedAt;
   DateTime? completedAt;
+  String? videoUrl;
 
   InterviewSession({
     required this.sessionId,
@@ -28,6 +29,7 @@ class InterviewSession {
     this.totalPoints = 0,
     required this.startedAt,
     this.completedAt,
+    this.videoUrl,
   });
 
   factory InterviewSession.fromMap(Map<String, dynamic> map) {
@@ -41,14 +43,15 @@ class InterviewSession {
       totalPoints: map['totalPoints'] ?? 0,
       startedAt: DateTime.fromMillisecondsSinceEpoch(map['startedAt'] ?? 0),
       completedAt: map['completedAt'] != null ? DateTime.fromMillisecondsSinceEpoch(map['completedAt']) : null,
+      videoUrl: map['videoUrl'],
       status: InterviewStatus.completed,
     );
   }
 
   int get totalQuestions => questions.length;
-  bool get isCompleted => currentQuestionIndex >= totalQuestions || status == InterviewStatus.completed;
+  bool get isCompleted => results.length >= totalQuestions || status == InterviewStatus.completed;
   double get progressPercent =>
-      totalQuestions == 0 ? 0 : currentQuestionIndex / totalQuestions;
+      totalQuestions == 0 ? 0 : results.length / totalQuestions;
 
   InterviewQuestion? get currentQuestion =>
       currentQuestionIndex < questions.length ? questions[currentQuestionIndex] : null;
@@ -67,6 +70,7 @@ class InterviewSession {
       'results': results.map((r) => r.toMap()).toList(),
       'startedAt': startedAt.millisecondsSinceEpoch,
       'completedAt': completedAt?.millisecondsSinceEpoch,
+      'videoUrl': videoUrl,
     };
   }
 }

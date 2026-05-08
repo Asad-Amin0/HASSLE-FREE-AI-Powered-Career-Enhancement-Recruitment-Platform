@@ -3,12 +3,15 @@ import '../services/job_service.dart';
 import '../services/resume_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../features/mock_interview/screens/mock_interview_screen.dart';
+import '../features/mock_interview/viewmodels/mock_interview_viewmodel.dart';
 import 'dart:async';
 
 class JobsScreen extends StatefulWidget {
   final bool isDarkMode;
-  const JobsScreen({super.key, this.isDarkMode = true});
+  final String? initialSearchQuery;
+  const JobsScreen({super.key, this.isDarkMode = true, this.initialSearchQuery});
 
   @override
   State<JobsScreen> createState() => _JobsScreenState();
@@ -17,13 +20,15 @@ class JobsScreen extends StatefulWidget {
 class _JobsScreenState extends State<JobsScreen> {
   Color get _textColor => widget.isDarkMode ? Colors.white : Colors.black87;
   Color get _mutedText => widget.isDarkMode ? Colors.white60 : Colors.black54;
-  Color get _cardBg => widget.isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.white;
-  Color get _cardBorder => widget.isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade300;
-
+  Color get _cardBg =>
+      widget.isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.white;
+  Color get _cardBorder => widget.isDarkMode
+      ? Colors.white.withValues(alpha: 0.05)
+      : Colors.grey.shade300;
 
   final JobService _jobService = JobService();
   final ResumeService _resumeService = ResumeService();
-  
+
   List<Map<String, dynamic>> _allJobs = [];
   List<Map<String, dynamic>> _filteredJobs = [];
   List<String> _userSkills = [];
@@ -34,6 +39,7 @@ class _JobsScreenState extends State<JobsScreen> {
   String _searchQuery = "";
   StreamSubscription? _jobsSubscription;
   StreamSubscription? _resumeSubscription;
+  late TextEditingController _searchController;
 
   // Filter values
   String _selectedType = 'All';
@@ -42,25 +48,29 @@ class _JobsScreenState extends State<JobsScreen> {
   @override
   void initState() {
     super.initState();
+    _searchQuery = widget.initialSearchQuery ?? "";
+    _searchController = TextEditingController(text: _searchQuery);
     _startListening();
   }
 
   void _startListening() {
     setState(() => _isLoading = true);
-    
+
     // Listen to resume changes
-    _resumeSubscription = _resumeService.getLatestResumeAnalysisStream().listen((data) {
-      if (mounted) {
-        setState(() {
-          if (data != null) {
-            _lastResumeData = data;
-            _userSkills = List<String>.from(data['skills'] ?? []);
-            _userName = data['name'] ?? "";
-          }
-          _processJobs();
-        });
-      }
-    });
+    _resumeSubscription = _resumeService.getLatestResumeAnalysisStream().listen(
+      (data) {
+        if (mounted) {
+          setState(() {
+            if (data != null) {
+              _lastResumeData = data;
+              _userSkills = List<String>.from(data['skills'] ?? []);
+              _userName = data['name'] ?? "";
+            }
+            _processJobs();
+          });
+        }
+      },
+    );
 
     // Listen to job changes
     _jobsSubscription = _jobService.getAllActiveJobsStream().listen((jobs) {
@@ -87,46 +97,54 @@ class _JobsScreenState extends State<JobsScreen> {
   void dispose() {
     _jobsSubscription?.cancel();
     _resumeSubscription?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
   void _processJobs() {
     _filteredJobs = _allJobs.map((job) {
-      List<String> requiredSkills = List<String>.from(job['requiredSkills'] ?? []);
+      List<String> requiredSkills = List<String>.from(
+        job['requiredSkills'] ?? [],
+      );
       int score = _calculateMatchScore(_userSkills, requiredSkills);
-      
+
       return {
         ...job,
         'matchScore': score,
         'tags': requiredSkills, // Map requiredSkills to tags for UI
-        'isHot': score >= 90, // Example: jobs with high match are "hot" for the user
+        'isHot':
+            score >= 90, // Example: jobs with high match are "hot" for the user
       };
     }).toList();
 
     // Sort by match score descending
-    _filteredJobs.sort((a, b) => (b['matchScore'] as int).compareTo(a['matchScore'] as int));
+    _filteredJobs.sort(
+      (a, b) => (b['matchScore'] as int).compareTo(a['matchScore'] as int),
+    );
 
     // Apply search filter if any
     if (_searchQuery.isNotEmpty) {
       _filteredJobs = _filteredJobs.where((job) {
         final title = job['title'].toString().toLowerCase();
         final company = job['company'].toString().toLowerCase();
-        return title.contains(_searchQuery.toLowerCase()) || 
-               company.contains(_searchQuery.toLowerCase());
+        return title.contains(_searchQuery.toLowerCase()) ||
+            company.contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
     // Apply Advanced Filters
     if (_selectedType != 'All') {
-      _filteredJobs = _filteredJobs.where((job) => job['type'] == _selectedType).toList();
+      _filteredJobs = _filteredJobs
+          .where((job) => job['type'] == _selectedType)
+          .toList();
     }
-    
+
     // Salary filter is harder because it's a string, we'll do a simple range match if possible
     if (_selectedSalaryRange != 'All') {
       // Example: "$1000 - $2000"
       _filteredJobs = _filteredJobs.where((job) {
         final salary = job['salaryRange'] ?? "";
-        return salary.contains(_selectedSalaryRange); 
+        return salary.contains(_selectedSalaryRange);
       }).toList();
     }
   }
@@ -134,11 +152,14 @@ class _JobsScreenState extends State<JobsScreen> {
   int _calculateMatchScore(List<String> userSkills, List<String> targetSkills) {
     if (targetSkills.isEmpty) return 100;
     if (userSkills.isEmpty) return 0;
-    
+
     int matches = 0;
     for (var target in targetSkills) {
-      if (userSkills.any((user) => user.toLowerCase().contains(target.toLowerCase()) || 
-                                   target.toLowerCase().contains(user.toLowerCase()))) {
+      if (userSkills.any(
+        (user) =>
+            user.toLowerCase().contains(target.toLowerCase()) ||
+            target.toLowerCase().contains(user.toLowerCase()),
+      )) {
         matches++;
       }
     }
@@ -166,19 +187,24 @@ class _JobsScreenState extends State<JobsScreen> {
           const SizedBox(height: 32),
           Text(
             isWeb ? 'Recommended for You' : 'Top Recommendations',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _textColor),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: _textColor,
+            ),
           ),
           const SizedBox(height: 20),
           _filteredJobs.isEmpty
               ? _buildEmptyState()
               : isWeb
-                  ? _buildWebJobGrid()
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _filteredJobs.length,
-                      itemBuilder: (context, index) => _buildJobCard(_filteredJobs[index]),
-                    ),
+              ? _buildWebJobGrid()
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _filteredJobs.length,
+                  itemBuilder: (context, index) =>
+                      _buildJobCard(_filteredJobs[index]),
+                ),
         ],
       ),
     );
@@ -192,13 +218,19 @@ class _JobsScreenState extends State<JobsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _userName.isNotEmpty ? 'Jobs for $_userName' : 'Explore Opportunities',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _textColor),
+              _userName.isNotEmpty
+                  ? 'Jobs for $_userName'
+                  : 'Explore Opportunities',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: _textColor,
+              ),
             ),
             Text(
-              _userSkills.isNotEmpty 
-                ? 'Matched with ${_userSkills.length} skills from your resume'
-                : 'Upload your resume for better job matches',
+              _userSkills.isNotEmpty
+                  ? 'Matched with ${_userSkills.length} skills from your resume'
+                  : 'Upload your resume for better job matches',
               style: TextStyle(color: _mutedText),
             ),
           ],
@@ -209,10 +241,14 @@ class _JobsScreenState extends State<JobsScreen> {
             icon: const Icon(Icons.filter_list, size: 18),
             label: const Text('Advanced Filter'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: widget.isDarkMode ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200,
+              backgroundColor: widget.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.grey.shade200,
               foregroundColor: _textColor,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
       ],
@@ -224,21 +260,23 @@ class _JobsScreenState extends State<JobsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+          backgroundColor: widget.isDarkMode
+              ? const Color(0xFF1E293B)
+              : Colors.white,
           title: Text('Advanced Filters', style: TextStyle(color: _textColor)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildFilterDropdown(
-                'Job Type', 
-                _selectedType, 
+                'Job Type',
+                _selectedType,
                 ['All', 'Full-time', 'Part-time', 'Contract', 'Remote'],
                 (val) => setDialogState(() => _selectedType = val!),
               ),
               const SizedBox(height: 16),
               _buildFilterDropdown(
-                'Salary Range', 
-                _selectedSalaryRange, 
+                'Salary Range',
+                _selectedSalaryRange,
                 ['All', '\$500', '\$1000', '\$2000', '\$3000'],
                 (val) => setDialogState(() => _selectedSalaryRange = val!),
               ),
@@ -251,7 +289,10 @@ class _JobsScreenState extends State<JobsScreen> {
                 setState(() {});
                 Navigator.pop(context);
               },
-              child: const Text('Apply Filters', style: TextStyle(color: Color(0xFF6366F1))),
+              child: const Text(
+                'Apply Filters',
+                style: TextStyle(color: Color(0xFF6366F1)),
+              ),
             ),
           ],
         ),
@@ -259,7 +300,12 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-  Widget _buildFilterDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+  Widget _buildFilterDropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -274,9 +320,18 @@ class _JobsScreenState extends State<JobsScreen> {
           child: DropdownButton<String>(
             value: value,
             isExpanded: true,
-            dropdownColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+            dropdownColor: widget.isDarkMode
+                ? const Color(0xFF1E293B)
+                : Colors.white,
             underline: const SizedBox(),
-            items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: TextStyle(color: _textColor)))).toList(),
+            items: items
+                .map(
+                  (e) => DropdownMenuItem(
+                    value: e,
+                    child: Text(e, style: TextStyle(color: _textColor)),
+                  ),
+                )
+                .toList(),
             onChanged: onChanged,
           ),
         ),
@@ -291,9 +346,17 @@ class _JobsScreenState extends State<JobsScreen> {
         color: _cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _cardBorder),
-        boxShadow: widget.isDarkMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: widget.isDarkMode
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                ),
+              ],
       ),
       child: TextField(
+        controller: _searchController,
         onChanged: (value) {
           setState(() {
             _searchQuery = value;
@@ -305,6 +368,18 @@ class _JobsScreenState extends State<JobsScreen> {
           hintText: 'Search for jobs, companies, or keywords...',
           border: InputBorder.none,
           prefixIcon: const Icon(Icons.search, color: Color(0xFF6366F1)),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: _mutedText, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _searchController.clear();
+                      _searchQuery = "";
+                      _processJobs();
+                    });
+                  },
+                )
+              : null,
           hintStyle: TextStyle(color: _mutedText),
         ),
       ),
@@ -316,10 +391,16 @@ class _JobsScreenState extends State<JobsScreen> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          Icon(Icons.work_outline, size: 64, color: Colors.white.withValues(alpha: 0.2)),
+          Icon(
+            Icons.work_outline,
+            size: 64,
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
           Text(
-            _searchQuery.isEmpty ? 'No jobs available right now' : 'No matching jobs found',
+            _searchQuery.isEmpty
+                ? 'No jobs available right now'
+                : 'No matching jobs found',
             style: TextStyle(color: _mutedText, fontSize: 18),
           ),
         ],
@@ -345,7 +426,7 @@ class _JobsScreenState extends State<JobsScreen> {
   Widget _buildJobCard(Map<String, dynamic> job) {
     bool isHot = job['isHot'];
     int score = job['matchScore'];
-    
+
     String expiryText = '';
     try {
       DateTime expiryDate;
@@ -358,8 +439,22 @@ class _JobsScreenState extends State<JobsScreen> {
       } else {
         expiryDate = DateTime.now().add(const Duration(days: 30));
       }
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      expiryText = 'Expires: ${expiryDate.day} ${months[expiryDate.month - 1]} ${expiryDate.year}, ${expiryDate.hour.toString().padLeft(2, '0')}:${expiryDate.minute.toString().padLeft(2, '0')}';
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      expiryText =
+          'Expires: ${expiryDate.day} ${months[expiryDate.month - 1]} ${expiryDate.year}, ${expiryDate.hour.toString().padLeft(2, '0')}:${expiryDate.minute.toString().padLeft(2, '0')}';
     } catch (_) {}
 
     return Container(
@@ -370,7 +465,14 @@ class _JobsScreenState extends State<JobsScreen> {
         color: _cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _cardBorder),
-        boxShadow: widget.isDarkMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: widget.isDarkMode
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,14 +515,21 @@ class _JobsScreenState extends State<JobsScreen> {
                         if (isHot)
                           Container(
                             margin: const EdgeInsets.only(left: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.orange.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
                               'HOT',
-                              style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                       ],
@@ -434,11 +543,19 @@ class _JobsScreenState extends State<JobsScreen> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.timer_outlined, color: Colors.orangeAccent, size: 12),
+                          const Icon(
+                            Icons.timer_outlined,
+                            color: Colors.orangeAccent,
+                            size: 12,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             expiryText,
-                            style: const TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.orangeAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -447,7 +564,10 @@ class _JobsScreenState extends State<JobsScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: _getScoreColor(score).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -456,9 +576,16 @@ class _JobsScreenState extends State<JobsScreen> {
                   children: [
                     Text(
                       '$score%',
-                      style: TextStyle(color: _getScoreColor(score), fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        color: _getScoreColor(score),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
-                    Text('Match', style: TextStyle(color: _mutedText, fontSize: 10)),
+                    Text(
+                      'Match',
+                      style: TextStyle(color: _mutedText, fontSize: 10),
+                    ),
                   ],
                 ),
               ),
@@ -467,23 +594,35 @@ class _JobsScreenState extends State<JobsScreen> {
           const Spacer(),
           Row(
             children: [
-              ...(job['tags'] as List<String>).map((tag) => Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _cardBg,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _cardBorder),
-                    ),
-                    child: Text(tag, style: TextStyle(fontSize: 12, color: _mutedText)),
-                  )),
+              ...(job['tags'] as List<String>).map(
+                (tag) => Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _cardBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _cardBorder),
+                  ),
+                  child: Text(
+                    tag,
+                    style: TextStyle(fontSize: 12, color: _mutedText),
+                  ),
+                ),
+              ),
               const Spacer(),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
                     job['salaryRange'] ?? 'Negotiable',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: _mutedText, fontSize: 12),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _mutedText,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   _buildApplyButton(job),
@@ -520,10 +659,18 @@ class _JobsScreenState extends State<JobsScreen> {
       return;
     }
 
+    int score = job['matchScore'] ?? 0;
+    if (score < 40) {
+      _showLowScoreWarning(score);
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: widget.isDarkMode
+            ? const Color(0xFF1E293B)
+            : Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
@@ -548,11 +695,15 @@ class _JobsScreenState extends State<JobsScreen> {
                     _submitApplication(job, false);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                    backgroundColor: const Color(
+                      0xFF6366F1,
+                    ).withValues(alpha: 0.1),
                     foregroundColor: const Color(0xFF818CF8),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -570,7 +721,9 @@ class _JobsScreenState extends State<JobsScreen> {
                     backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -581,7 +734,38 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-  Future<void> _submitApplication(Map<String, dynamic> job, bool withInterview) async {
+  Future<void> _submitApplication(
+    Map<String, dynamic> job,
+    bool withInterview,
+  ) async {
+    if (withInterview) {
+      // Navigate to Interview first, it will handle submission at the end
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final skills = List<String>.from(_lastResumeData!['skills'] ?? []);
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ChangeNotifierProvider(
+              create: (_) => MockInterviewViewModel(),
+              child: MockInterviewScreen(
+                userId: user.uid,
+                jobRole: job['title'],
+                skills: skills,
+                resumeData: _lastResumeData,
+                jobId: job['id'],
+                jobDescription: job['description'] ?? "",
+                isDarkMode: widget.isDarkMode,
+                onExit: () => Navigator.of(context).pop(),
+              ),
+
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Apply with Resume Only
     final success = await _jobService.applyForJob(
       jobId: job['id'],
       resumeData: _lastResumeData!,
@@ -591,30 +775,9 @@ class _JobsScreenState extends State<JobsScreen> {
       setState(() {
         _appliedJobs.add(job['id']);
       });
-
-      if (withInterview) {
-        // Navigate to Interview
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          final skills = List<String>.from(_lastResumeData!['skills'] ?? []);
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => MockInterviewScreen(
-                userId: user.uid,
-                jobRole: job['title'],
-                skills: skills,
-                jobId: job['id'],
-                isDarkMode: widget.isDarkMode,
-                onExit: () => Navigator.of(context).pop(),
-              ),
-            ),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully applied for ${job['title']}!')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Successfully applied for ${job['title']}!')),
+      );
     }
   }
 
@@ -623,5 +786,48 @@ class _JobsScreenState extends State<JobsScreen> {
     if (score >= 80) return Colors.blue;
     if (score >= 70) return Colors.orange;
     return Colors.red;
+  }
+
+  void _showLowScoreWarning(int score) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            const SizedBox(width: 12),
+            Text('Low Match Score', style: TextStyle(color: _textColor, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your current match score is $score%.',
+              style: TextStyle(color: _textColor, fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'To ensure high-quality applications, a minimum match score of 40% is required to apply for this position.',
+              style: TextStyle(color: _mutedText),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Tip: Try updating your resume with relevant skills to improve your match score!',
+              style: const TextStyle(color: Color(0xFF6366F1), fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 }

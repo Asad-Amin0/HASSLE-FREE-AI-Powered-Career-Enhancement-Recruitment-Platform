@@ -129,12 +129,12 @@ def extract_skills(text):
     return sorted(list(detected))
 
 def extract_sections(text):
-    sections = {"experience": [], "education": []}
+    sections = {"experience": [], "education": [], "certificates": []}
     
-    exp_headers = [r'experience', r'employment', r'work history', r'projects', r'job profile', r'professional background']
-    edu_headers = [r'education', r'academic', r'qualifications', r'certifications']
+    exp_headers = [r'experience', r'employment', r'work history', r'projects', r'job profile', r'professional background', r'work experience']
+    edu_headers = [r'education', r'academic', r'qualifications', r'scholastic']
+    cert_headers = [r'certifications', r'certificates', r'awards', r'courses', r'licenses', r'achievement']
     
-    # Only stop if it's a major section break that's NOT related to exp/edu
     stop_headers = [r'skills', r'summary', r'languages', r'contact', r'interests', r'hobbies', r'references']
     
     lines = text.split('\n')
@@ -146,28 +146,57 @@ def extract_sections(text):
         
         # Check for Education Header
         if any(re.search(r'\b' + h + r'\b', clean_line) for h in edu_headers):
-            # Only switch if this isn't already experience
-            if current_section != "experience":
-                current_section = "education"
-                continue
+            current_section = "education"
+            continue
+            
+        # Check for Certificates Header
+        if any(re.search(r'\b' + h + r'\b', clean_line) for h in cert_headers):
+            current_section = "certificates"
+            continue
         
         # Check for Experience Header
         if any(re.search(r'\b' + h + r'\b', clean_line) for h in exp_headers):
             current_section = "experience"
             continue
             
-        # Check for Stop Header (only if it's a dedicated line)
+        # Check for Stop Header
         if current_section and any(re.search(r'^' + s + r'$', clean_line) for s in stop_headers):
             current_section = None
             continue
             
         if current_section:
             sections[current_section].append(line.strip())
-            if len(sections[current_section]) > 25: current_section = None
+            if len(sections[current_section]) > 30: current_section = None
+
+    # FALLBACK: If certificates section is empty, scan text for common certificate patterns
+    if not sections["certificates"]:
+        cert_patterns = [
+            r'(?i)(certified\s+[\w\s]{3,30})',
+            r'(?i)(certificate\s+in\s+[\w\s]{3,30})',
+            r'(?i)(license\s+[\w\s]{3,30})',
+            r'(?i)(awarded\s+[\w\s]{3,30})',
+            r'(?i)([\w\s]{3,30}\s+certification)'
+        ]
+        text_full = " ".join(lines)
+        for pattern in cert_patterns:
+            matches = re.findall(pattern, text_full)
+            for m in matches:
+                if isinstance(m, str) and len(m) > 5:
+                    sections["certificates"].append(m.strip())
+
+    # De-duplicate certificates
+    unique_certs = []
+    seen = set()
+    for c in sections["certificates"]:
+        c_low = c.lower().strip()
+        if c_low not in seen and len(c_low) > 4:
+            unique_certs.append(c)
+            seen.add(c_low)
             
     return {
         "experience": "\n".join(sections["experience"][:12]) if sections["experience"] else "No history found.",
-        "education": "\n".join(sections["education"][:8]) if sections["education"] else "No history found."
+        "education": "\n".join(sections["education"][:8]) if sections["education"] else "No history found.",
+        "certificates": unique_certs[:10]
     }
 
 def analyze_resume(file_bytes, filename):
@@ -196,5 +225,6 @@ def analyze_resume(file_bytes, filename):
         "skills": skills,
         "experience": sects["experience"],
         "education": sects["education"],
+        "certificates": sects["certificates"],
         "text_preview": cleaned_all[:400] + "..."
     }

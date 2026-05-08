@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/company_service.dart';
 import '../services/auth_service.dart';
@@ -14,9 +15,13 @@ class CompanyProfileScreen extends StatefulWidget {
 class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
   Color get _textColor => widget.isDarkMode ? Colors.white : Colors.black87;
   Color get _mutedText => widget.isDarkMode ? Colors.white60 : Colors.black54;
-  Color get _cardBg => widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white;
-  Color get _cardBorder => widget.isDarkMode ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300;
-  Color get _bgColor => widget.isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+  Color get _cardBg =>
+      widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white;
+  Color get _cardBorder => widget.isDarkMode
+      ? Colors.white.withValues(alpha: 0.1)
+      : Colors.grey.shade300;
+  Color get _bgColor =>
+      widget.isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
   final CompanyService _companyService = CompanyService();
   final _formKey = GlobalKey<FormState>();
 
@@ -63,7 +68,9 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Profile updated!' : 'Failed to update profile'),
+          content: Text(
+            success ? 'Profile updated!' : 'Failed to update profile',
+          ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -77,8 +84,11 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
     return StreamBuilder<Map<String, dynamic>>(
       stream: _companyService.getCompanyProfileStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)));
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+          );
         }
 
         final profile = snapshot.data ?? {};
@@ -125,10 +135,11 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                 Text(
                   'Company Profile',
                   style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: _textColor,
-                      letterSpacing: -1),
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: _textColor,
+                    letterSpacing: -1,
+                  ),
                 ),
                 Text(
                   'Manage your company details and branding',
@@ -157,14 +168,25 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
             ? const SizedBox(
                 width: 16,
                 height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
             : const Icon(Icons.edit, color: Colors.white, size: 20),
-        label: Text(_isEditing ? 'Save Profile' : 'Edit Profile',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: Text(
+          _isEditing ? 'Save Profile' : 'Edit Profile',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: _isEditing ? Colors.green : const Color(0xFF6366F1),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           minimumSize: isMobile ? const Size(double.infinity, 50) : null,
         ),
       ),
@@ -172,12 +194,17 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
       OutlinedButton.icon(
         onPressed: () => _handleLogout(context),
         icon: const Icon(Icons.logout, size: 20),
-        label: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Logout',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.redAccent,
           side: const BorderSide(color: Colors.redAccent),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           minimumSize: isMobile ? const Size(double.infinity, 50) : null,
         ),
       ),
@@ -221,8 +248,16 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                 Container(
                   height: 160,
                   decoration: const BoxDecoration(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                    gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFF06B6D4)]),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFF6366F1),
+                        Color(0xFF8B5CF6),
+                        Color(0xFF06B6D4),
+                      ],
+                    ),
                   ),
                 ),
                 // Details
@@ -232,9 +267,11 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       _buildLogoPlaceholder(
-                        (profile['name'] != null && profile['name'].toString().isNotEmpty)
+                        (profile['name'] != null &&
+                                profile['name'].toString().isNotEmpty)
                             ? profile['name'].toString()[0].toUpperCase()
                             : 'C',
+                        profile['logoUrl'] ?? profile['profilePictureUrl'],
                       ),
                       const SizedBox(width: 24),
                       Expanded(
@@ -242,14 +279,35 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (_isEditing)
-                              _buildInlineTextField(_nameController, 'Company Name', Icons.business)
+                              _buildInlineTextField(
+                                _nameController,
+                                'Company Name',
+                                Icons.business,
+                              )
                             else
-                              Text(profile['name'] ?? 'Add Company Name', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _textColor)),
+                              Text(
+                                profile['name'] ?? 'Add Company Name',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: _textColor,
+                                ),
+                              ),
                             const SizedBox(height: 8),
                             if (_isEditing)
-                              _buildInlineTextField(_industryController, 'Industry', Icons.category_outlined)
+                              _buildInlineTextField(
+                                _industryController,
+                                'Industry',
+                                Icons.category_outlined,
+                              )
                             else
-                              Text(profile['industry'] ?? 'Industry not set', style: TextStyle(color: _mutedText, fontSize: 16)),
+                              Text(
+                                profile['industry'] ?? 'Industry not set',
+                                style: TextStyle(
+                                  color: _mutedText,
+                                  fontSize: 16,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -270,9 +328,18 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                   children: [
                     _buildInfoCard(
                       'About Company',
-                      _isEditing 
-                        ? _buildMultiLineTextField(_descriptionController, 'Describe your company...')
-                        : Text(profile['about'] ?? 'No description provided.', style: TextStyle(color: _textColor.withValues(alpha: 0.7), height: 1.6)),
+                      _isEditing
+                          ? _buildMultiLineTextField(
+                              _descriptionController,
+                              'Describe your company...',
+                            )
+                          : Text(
+                              profile['about'] ?? 'No description provided.',
+                              style: TextStyle(
+                                color: _textColor.withValues(alpha: 0.7),
+                                height: 1.6,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -286,11 +353,32 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                         'Details',
                         Column(
                           children: [
-                            _buildInfoItem(Icons.public, 'Website', profile['website'], _websiteController),
-                            Divider(height: 32, color: _textColor.withValues(alpha: 0.1)),
-                            _buildInfoItem(Icons.location_on_outlined, 'Headquarters', profile['location'], _locationController),
-                            Divider(height: 32, color: _textColor.withValues(alpha: 0.1)),
-                            _buildInfoItem(Icons.people_outline, 'Company Size', profile['employeeCount'], _employeeCountController),
+                            _buildInfoItem(
+                              Icons.public,
+                              'Website',
+                              profile['website'],
+                              _websiteController,
+                            ),
+                            Divider(
+                              height: 32,
+                              color: _textColor.withValues(alpha: 0.1),
+                            ),
+                            _buildInfoItem(
+                              Icons.location_on_outlined,
+                              'Headquarters',
+                              profile['location'],
+                              _locationController,
+                            ),
+                            Divider(
+                              height: 32,
+                              color: _textColor.withValues(alpha: 0.1),
+                            ),
+                            _buildInfoItem(
+                              Icons.people_outline,
+                              'Company Size',
+                              profile['employeeCount'],
+                              _employeeCountController,
+                            ),
                           ],
                         ),
                       ),
@@ -306,11 +394,32 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
               'Details',
               Column(
                 children: [
-                  _buildInfoItem(Icons.public, 'Website', profile['website'], _websiteController),
-                  const Divider(height: 32, color: Colors.white10),
-                  _buildInfoItem(Icons.location_on_outlined, 'Headquarters', profile['location'], _locationController),
-                  const Divider(height: 32, color: Colors.white10),
-                  _buildInfoItem(Icons.people_outline, 'Company Size', profile['employeeCount'], _employeeCountController),
+                  _buildInfoItem(
+                    Icons.public,
+                    'Website',
+                    profile['website'],
+                    _websiteController,
+                  ),
+                  Divider(
+                    height: 32,
+                    color: _textColor.withValues(alpha: 0.1),
+                  ),
+                  _buildInfoItem(
+                    Icons.location_on_outlined,
+                    'Headquarters',
+                    profile['location'],
+                    _locationController,
+                  ),
+                  Divider(
+                    height: 32,
+                    color: _textColor.withValues(alpha: 0.1),
+                  ),
+                  _buildInfoItem(
+                    Icons.people_outline,
+                    'Company Size',
+                    profile['employeeCount'],
+                    _employeeCountController,
+                  ),
                 ],
               ),
             ),
@@ -320,7 +429,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
     );
   }
 
-  Widget _buildLogoPlaceholder(String initial) {
+  Widget _buildLogoPlaceholder(String initial, String? logoUrl) {
     return Transform.translate(
       offset: const Offset(0, -50),
       child: Container(
@@ -330,11 +439,33 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
           color: _bgColor,
           shape: BoxShape.circle,
           border: Border.all(color: const Color(0xFF6366F1), width: 4),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10)],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10,
+            ),
+          ],
+          image: logoUrl != null && logoUrl.isNotEmpty
+              ? DecorationImage(
+                  image: logoUrl.startsWith('data:image')
+                      ? MemoryImage(base64Decode(logoUrl.split(',').last))
+                      : NetworkImage(logoUrl) as ImageProvider,
+                  fit: BoxFit.cover,
+                )
+              : null,
         ),
-        child: Center(
-          child: Text(initial, style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: _textColor)),
-        ),
+        child: (logoUrl == null || logoUrl.isEmpty)
+            ? Center(
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.bold,
+                    color: _textColor,
+                  ),
+                ),
+              )
+            : null,
       ),
     );
   }
@@ -351,7 +482,14 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _textColor)),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: _textColor,
+            ),
+          ),
           const SizedBox(height: 24),
           content,
         ],
@@ -359,12 +497,20 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label, String? value, TextEditingController controller) {
+  Widget _buildInfoItem(
+    IconData icon,
+    String label,
+    String? value,
+    TextEditingController controller,
+  ) {
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: const Color(0xFF6366F1).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Icon(icon, size: 18, color: const Color(0xFF6366F1)),
         ),
         const SizedBox(width: 16),
@@ -376,7 +522,13 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
               if (_isEditing)
                 _buildInlineTextField(controller, label, null)
               else
-                Text(value ?? 'Not set', style: TextStyle(color: _textColor, fontWeight: FontWeight.w500)),
+                Text(
+                  value ?? 'Not set',
+                  style: TextStyle(
+                    color: _textColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
             ],
           ),
         ),
@@ -384,33 +536,51 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
     );
   }
 
-  Widget _buildInlineTextField(TextEditingController controller, String hint, IconData? icon) {
+  Widget _buildInlineTextField(
+    TextEditingController controller,
+    String hint,
+    IconData? icon,
+  ) {
     return TextFormField(
       controller: controller,
       style: TextStyle(color: _textColor),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.white24),
-        prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF6366F1), size: 18) : null,
+        hintStyle: TextStyle(color: _mutedText.withValues(alpha: 0.5)),
+        prefixIcon: icon != null
+            ? Icon(icon, color: const Color(0xFF6366F1), size: 18)
+            : null,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white10)),
-        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF6366F1))),
+        enabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: _textColor.withValues(alpha: 0.1)),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF6366F1)),
+        ),
       ),
     );
   }
 
-  Widget _buildMultiLineTextField(TextEditingController controller, String hint) {
+  Widget _buildMultiLineTextField(
+    TextEditingController controller,
+    String hint,
+  ) {
     return TextFormField(
       controller: controller,
       maxLines: 5,
       style: TextStyle(color: _textColor),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white24),
+        hintStyle: TextStyle(color: _mutedText.withValues(alpha: 0.5)),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.03),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        fillColor: widget.isDarkMode
+            ? Colors.white.withValues(alpha: 0.03)
+            : Colors.black.withValues(alpha: 0.03),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
       ),
     );
   }

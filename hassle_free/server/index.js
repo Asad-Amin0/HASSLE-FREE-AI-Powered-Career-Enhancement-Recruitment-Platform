@@ -47,7 +47,10 @@ app.post("/generateInterviewQuestions", async (req, res) => {
       messages: [{ role: "system", content: prompt }],
       temperature: 0.7,
     });
-    const json = JSON.parse(response.data.choices[0].message.content);
+    let content = response.data.choices[0].message.content;
+    // Strip markdown code blocks if present
+    content = content.replace(/```json|```/g, "").trim();
+    const json = JSON.parse(content);
     res.json({ questions: json });
   } catch (err) {
     console.error(err);
@@ -91,7 +94,10 @@ Provide a JSON with {"score":0-1,"matchedPhrases":[],"missedPhrases":[],"feedbac
         messages: [{ role: "system", content: prompt }],
         temperature: 0.2,
       });
-      result = JSON.parse(ai.data.choices[0].message.content);
+      let content = ai.data.choices[0].message.content;
+      // Strip markdown code blocks if present
+      content = content.replace(/```json|```/g, "").trim();
+      result = JSON.parse(content);
     } catch (_) {
       result = evaluateLocally({ question: { keyPhrases }, userAnswer });
     }

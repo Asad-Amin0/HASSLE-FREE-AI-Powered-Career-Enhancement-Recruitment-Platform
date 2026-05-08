@@ -7,6 +7,8 @@ class TtsService {
   bool _isInitialized = false;
   Function(String phoneme)? onPhoneme; // hook for lip-sync
 
+  Completer<void>? _activeCompleter;
+
   Future<void> init() async {
     if (_isInitialized) return;
     await _tts.setLanguage('en-US');
@@ -34,24 +36,39 @@ class TtsService {
 
   Future<void> speak(String text) async {
     await init();
-    await _tts.stop();
+    await stop(); // Stop any previous
     
-    final completer = Completer<void>();
+    _activeCompleter = Completer<void>();
     _tts.setCompletionHandler(() {
       onPhoneme?.call('X');
-      if (!completer.isCompleted) completer.complete();
+      if (_activeCompleter != null && !_activeCompleter!.isCompleted) {
+        _activeCompleter!.complete();
+      }
     });
     
     _tts.setErrorHandler((msg) {
-      if (!completer.isCompleted) completer.complete();
+      if (_activeCompleter != null && !_activeCompleter!.isCompleted) {
+        _activeCompleter!.complete();
+      }
     });
 
     await _tts.speak(text);
-    return completer.future;
+    return _activeCompleter!.future;
   }
 
 
-  Future<void> stop() async => _tts.stop();
+  Future<void> stop() async {
+    await _tts.stop();
+    if (_activeCompleter != null && !_activeCompleter!.isCompleted) {
+      _activeCompleter!.complete();
+    }
+  }
+
   Future<void> pause() async => _tts.pause();
-  void dispose() => _tts.stop();
+  void dispose() {
+    _tts.stop();
+    if (_activeCompleter != null && !_activeCompleter!.isCompleted) {
+      _activeCompleter!.complete();
+    }
+  }
 }

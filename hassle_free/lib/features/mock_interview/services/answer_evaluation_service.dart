@@ -5,7 +5,14 @@ import '../models/interview_question.dart';
 import '../models/interview_result.dart';
 
 class AnswerEvaluationService {
-  static const String _backendUrl = 'http://localhost:3000';
+  // Updated to support multiple platforms (Web, Android Emulator, Desktop)
+  static String get _backendUrl {
+    if (kIsWeb) return 'http://localhost:3000';
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:3000';
+    }
+    return 'http://localhost:3000';
+  }
 
   Future<InterviewResult> evaluate({
     required InterviewQuestion question,
@@ -36,7 +43,7 @@ class AnswerEvaluationService {
         'skill': question.skill,
         'difficulty': question.difficulty,
       }),
-    ).timeout(const Duration(seconds: 10));
+    ).timeout(const Duration(seconds: 15)); // Increased timeout for AI evaluation
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);

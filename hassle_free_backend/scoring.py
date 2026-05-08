@@ -10,37 +10,42 @@ def calculate_employability_score(resume_data, interview_data=None, test_data=No
     # --- 1. Resume Scoring (Base 100) ---
     resume_score = 0.0
     
-    # Experience (Max 40)
+    # Experience (Max 30)
     exp_text = resume_data.get('experience', '').lower()
     exp_points = 0.0
-    year_match = re.search(r'(\d+)\s*\+?\s*year', exp_text)
-    if year_match:
-        years = int(year_match.group(1))
-        exp_points = 40.0 if years >= 2 else (years / 2.0) * 40.0
-    else:
-        num_exp_lines = len([l for l in exp_text.split('\n') if len(l.strip()) > 10])
-        exp_points = 40.0 if num_exp_lines >= 3 else (20.0 if num_exp_lines > 0 else 0.0)
+    num_exp_lines = len([l for l in exp_text.split('\n') if len(l.strip()) > 10])
+    exp_points = 30.0 if num_exp_lines >= 3 else (15.0 if num_exp_lines > 0 else 0.0)
     resume_score += exp_points
 
-    # Education (Max 30)
+    # Education (Max 20)
     edu_text = resume_data.get('education', '').lower()
     edu_points = 0.0
+    # 4-year degree (Bachelor/BS): 10
     if any(m in edu_text for m in ['bachelor', 'bs', 'b.e', 'btech', 'b.tech', 'be']):
-        edu_points += 20.0
-    if any(m in edu_text for m in ['college', 'school', 'academy', 'high school', 'intermediate']):
         edu_points += 10.0
+    # 2-year degree (Associate/College/Intermediate): 10
+    if any(m in edu_text for m in ['associate', '2 year', 'college', 'intermediate', 'diploma']):
+        edu_points += 10.0
+    # Masters/PhD can bolster the score if one is missing, but capped at 20
+    if ('master' in edu_text or 'ms' in edu_text) and edu_points < 20:
+        edu_points = min(edu_points + 5.0, 20.0)
+    
     resume_score += edu_points
 
-    # Certificates (Max 10)
-    cert_keywords = ['certificate', 'certified', 'certification', 'license', 'nanodegree']
-    full_text = (edu_text + " " + exp_text + " " + resume_data.get('text', '').lower())
-    cert_points = 10.0 if any(kw in full_text for kw in cert_keywords) else 0.0
-    resume_score += cert_points
-
-    # Skills (Max 20)
+    # Skills (Max 30)
     skills = resume_data.get('skills', [])
-    skill_points = min(len(skills) * 1.2, 20.0)
+    skill_points = min(len(skills) * 1.5, 30.0)
     resume_score += skill_points
+
+    # Certificates (Max 10-20)
+    certs = resume_data.get('certificates', [])
+    if len(certs) > 4:
+        # Fit within 20%
+        cert_points = min(len(certs) * 4.0, 20.0)
+    else:
+        # Max 10%
+        cert_points = min(len(certs) * 2.5, 10.0)
+    resume_score += cert_points
 
     # --- 2. Interview Scoring (Base 100) ---
     interview_score = 0.0

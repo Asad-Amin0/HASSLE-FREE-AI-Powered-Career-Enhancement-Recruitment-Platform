@@ -1,6 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io' as io;
+import 'package:http/http.dart' as http;
+import 'supabase_service.dart';
+
 
 class JobService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -317,6 +322,8 @@ class JobService {
           if (jobDoc.exists) {
             data['jobTitle'] = jobDoc.data()?['title'] ?? data['jobTitle'] ?? 'Unknown Position';
             data['company'] = jobDoc.data()?['company'] ?? 'Unknown Company';
+            data['expiryDate'] = jobDoc.data()?['expiryDate'];
+            data['jobStatus'] = jobDoc.data()?['status'];
           }
         } catch (e) {
           debugPrint('Error fetching job details for application: $e');
@@ -351,6 +358,19 @@ class JobService {
     }
   }
 
+  // ─── Delete application (for employers) ─────────────────────────────
+  Future<bool> deleteApplication(String applicationId) async {
+    try {
+      await _db.collection('applications').doc(applicationId).delete();
+      debugPrint('Application $applicationId deleted');
+      return true;
+    } catch (e) {
+      debugPrint('Error deleting application: $e');
+      return false;
+    }
+  }
+
+
   // ─── Get all applicants for any job posted by this employer ───────────────
   Stream<List<Map<String, dynamic>>> getEmployerAllApplicantsStream() {
     final user = _auth.currentUser;
@@ -374,6 +394,8 @@ class JobService {
     required String jobId,
     required String seekerId,
     required Map<String, dynamic> resultData,
+    String? videoUrl,
+    Map<String, dynamic>? resumeData,
   }) async {
     try {
       final appQuery = await _db
@@ -382,20 +404,105 @@ class JobService {
           .where('seekerId', isEqualTo: seekerId)
           .get();
 
-      if (appQuery.docs.isEmpty) return false;
-
-      final appId = appQuery.docs.first.id;
-      await _db.collection('applications').doc(appId).update({
-        'interviewResult': resultData,
-        'hasInterview': true,
-        'interviewStatus': 'completed',
-        'overallScore': resultData['overallScore'] ?? 0.0,
-      });
-      debugPrint('Interview result saved for application $appId');
+      if (appQuery.docs.isEmpty) {
+        // Create new application (Apply with Interview flow)
+        final user = _auth.currentUser;
+        await _db.collection('applications').add({
+          'jobId': jobId,
+          'seekerId': seekerId,
+          'seekerName': resumeData?['name'] ?? user?.displayName ?? 'Anonymous',
+          'seekerEmail': user?.email ?? 'No email',
+          'resumeData': resumeData ?? {},
+          'appliedAt': FieldValue.serverTimestamp(),
+          'status': 'applied',
+          'interviewResult': resultData,
+          'hasInterview': true,
+          'interviewStatus': 'completed',
+          'overallScore': resultData['overallScore'] ?? 0.0,
+          'interviewDate': FieldValue.serverTimestamp(),
+          'videoUrl': videoUrl ?? resultData['videoUrl'],
+        });
+        debugPrint('New application created with interview for job $jobId');
+      } else {
+        // Update existing application
+        final appId = appQuery.docs.first.id;
+        await _db.collection('applications').doc(appId).update({
+          'interviewResult': resultData,
+          'hasInterview': true,
+          'interviewStatus': 'completed',
+          'overallScore': resultData['overallScore'] ?? 0.0,
+          'interviewDate': FieldValue.serverTimestamp(),
+          'videoUrl': videoUrl ?? resultData['videoUrl'],
+        });
+        debugPrint('Interview result updated for application $appId');
+      }
       return true;
     } catch (e) {
       debugPrint('Error saving interview result: $e');
       return false;
     }
   }
+
+
+  // ─── Check if user can take interview (2-hour limit) ──────────────────────
+  Future<bool> canTakeInterviewToday({String? jobId}) async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+
+    try {
+      final twoHoursAgo = DateTime.now().subtract(const Duration(hours: 2));
+
+      Query query = _db
+          .collection('applications')
+          .where('seekerId', isEqualTo: user.uid)
+          .where('hasInterview', isEqualTo: true)
+          .where('interviewDate', isGreaterThanOrEqualTo: Timestamp.fromDate(twoHoursAgo));
+      
+      if (jobId != null) {
+        query = query.where('jobId', isEqualTo: jobId);
+      }
+
+      final snapshot = await query.get();
+      return snapshot.docs.isEmpty;
+    } catch (e) {
+      debugPrint('Error checking interview limit: $e');
+      return true; // Fallback to allow in case of error
+    }
+  }
+
+  
+  // ─── Upload Interview Video (Supabase) ───────────────────────────────────
+  Future<String?> uploadInterviewVideo(String filePath, String seekerId, String jobId) async {
+    try {
+      // Switch from Firebase Storage to Supabase Storage as requested
+      final supabaseUrl = await SupabaseService().uploadInterviewVideo(
+        filePath: filePath,
+        seekerId: seekerId,
+        jobId: jobId,
+      );
+      
+      if (supabaseUrl != null) {
+        return supabaseUrl;
+      }
+      
+      // Fallback to Firebase Storage if Supabase fails (optional safety)
+      debugPrint('Supabase upload failed, attempting Firebase Storage fallback...');
+      final storageRef = FirebaseStorage.instance.ref();
+      final videoRef = storageRef.child('interviews/$seekerId/$jobId/${DateTime.now().millisecondsSinceEpoch}.mp4');
+      
+      if (kIsWeb) {
+        final response = await http.get(Uri.parse(filePath));
+        final bytes = response.bodyBytes;
+        await videoRef.putData(bytes, SettableMetadata(contentType: 'video/mp4'));
+      } else {
+        await videoRef.putFile(io.File(filePath));
+      }
+      
+      return await videoRef.getDownloadURL();
+    } catch (e) {
+      debugPrint('Error uploading interview video: $e');
+      return null;
+    }
+  }
+
 }

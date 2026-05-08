@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/interview_question.dart';
 import '../models/interview_session.dart';
 import '../models/interview_result.dart';
@@ -34,6 +35,10 @@ class MockInterviewViewModel extends ChangeNotifier {
   Timer? _lipSyncTimer;
   double _lipSyncTime = 0.0;
   List<LipSyncFrame> _currentFrames = [];
+  bool _isActive = true;
+  String? _videoPath;
+  Map<String, dynamic>? _resumeData;
+
 
 
   void reset() {
@@ -44,6 +49,7 @@ class MockInterviewViewModel extends ChangeNotifier {
     _partialTranscript = '';
     _finalTranscript = '';
     _phonemeNotifier.value = 'X';
+    _videoPath = null;
   }
 
 
@@ -69,19 +75,34 @@ class MockInterviewViewModel extends ChangeNotifier {
     required String userId,
     required String jobRole,
     required List<String> skills,
+    Map<String, dynamic>? resumeData,
     String? jobId,
-    int questionCount = 7,
+    String jobDescription = "",
+    int questionCount = 4,
   }) async {
     reset(); // Clear previous session state
     _jobId = jobId;
+    _resumeData = resumeData;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
+
+    // 1. Check 2-hour interview limit
+    final canTake = await JobService().canTakeInterviewToday(jobId: jobId);
+    if (!canTake) {
+      _error = 'You have already taken this interview recently. Please wait at least 2 hours before attempting the same interview again.';
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
 
 
     try {
       final questions = await _ragService.getQuestionsForSession(
         jobRole: jobRole,
+        jobDescription: jobDescription,
         userSkills: skills,
         count: questionCount,
       );
@@ -101,8 +122,12 @@ class MockInterviewViewModel extends ChangeNotifier {
       notifyListeners();
 
       // Avatar greets and asks first question
+      if (!_isActive) return;
       await _avatarIntroduction(jobRole);
+      
+      if (!_isActive) return;
       await Future.delayed(const Duration(milliseconds: 200));
+      if (!_isActive) return;
       await _askCurrentQuestion();
     } catch (e) {
       _error = 'Failed to start interview: $e';
@@ -147,7 +172,9 @@ class MockInterviewViewModel extends ChangeNotifier {
     );
 
     // After avatar finishes speaking, start listening
+    if (!_isActive) return;
     await Future.delayed(const Duration(milliseconds: 200));
+    if (!_isActive) return;
     await _startListening();
   }
 
@@ -286,6 +313,7 @@ class MockInterviewViewModel extends ChangeNotifier {
       notifyListeners();
 
       // Avatar gives feedback
+      if (!_isActive) return;
       await _avatarGiveFeedback(result);
 
     } catch (e) {
@@ -311,13 +339,20 @@ class MockInterviewViewModel extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 500));
 
     // Advance to next question or finish
-    _session!.currentQuestionIndex++;
+    if (!_session!.isCompleted) {
+      if (_session!.currentQuestionIndex < _session!.totalQuestions - 1) {
+        _session!.currentQuestionIndex++;
+      }
+    }
     notifyListeners();
 
     if (_session!.isCompleted) {
+      if (!_isActive) return;
       await _completeInterview();
     } else {
+      if (!_isActive) return;
       await Future.delayed(const Duration(milliseconds: 400));
+      if (!_isActive) return;
       await _askCurrentQuestion();
     }
   }
@@ -351,16 +386,24 @@ class MockInterviewViewModel extends ChangeNotifier {
     // Save to Firestore if linked to a job application
     if (_jobId != null && _session != null) {
       try {
-        await JobService().saveInterviewResult(
-          jobId: _jobId!,
-          seekerId: _session!.userId,
-          resultData: _session!.toMap(),
-        );
+        // Auto-apply if they haven't already
+        final applied = await JobService().hasApplied(_jobId!);
+        if (!applied) {
+          await JobService().applyForJob(
+            jobId: _jobId!,
+            resumeData: _resumeData ?? {
+              'name': FirebaseAuth.instance.currentUser?.displayName ?? "Seeker",
+              'skills': _session!.skills,
+              'category': _session!.jobRole,
+            },
+          );
+        }
       } catch (e) {
-        debugPrint('Error auto-saving interview result: $e');
+        debugPrint('Error auto-applying for job: $e');
       }
     }
   }
+
 
   // ─── Skip Question ────────────────────────────────────────────────────────
   Future<void> skipQuestion() async {
@@ -369,19 +412,54 @@ class MockInterviewViewModel extends ChangeNotifier {
   }
 
   // ─── End Interview ────────────────────────────────────────────────────────
-  Future<void> endInterview() async {
+  Future<void> endInterview({String? videoPath}) async {
     _isEvaluating = false; // Force stop evaluation
+    _videoPath = videoPath;
     
     // 1. Stop everything first (including voice)
     await stopAll();
     
-    // 2. Then update status to navigate
+    // 2. Upload video if exists
+    if (_videoPath != null && _jobId != null && _session != null) {
+      _isLoading = true;
+      notifyListeners();
+      try {
+        final url = await JobService().uploadInterviewVideo(
+          _videoPath!, 
+          _session!.userId, 
+          _jobId!
+        );
+        _session!.videoUrl = url;
+      } catch (e) {
+        debugPrint('Error uploading video: $e');
+      }
+      _isLoading = false;
+    }
+
+    // 3. Save final results with video URL
+    if (_jobId != null && _session != null) {
+      try {
+        await JobService().saveInterviewResult(
+          jobId: _jobId!,
+          seekerId: _session!.userId,
+          resultData: _session!.toMap(),
+          videoUrl: _session!.videoUrl,
+          resumeData: _resumeData,
+        );
+
+      } catch (e) {
+        debugPrint('Error saving final interview result: $e');
+      }
+    }
+
+    // 4. Then update status to navigate
     if (_session != null) {
       _session!.status = InterviewStatus.completed;
       _session!.completedAt = DateTime.now();
       notifyListeners();
     }
   }
+
 
   // ─── Retry Current Question ────────────────────────────────────────────────
   Future<void> retryListening() async {
@@ -398,7 +476,8 @@ class MockInterviewViewModel extends ChangeNotifier {
   String get currentPhoneme => _phonemeNotifier.value;
 
   // ─── Stop All Activities ──────────────────────────────────────────────────
-  Future<void> stopAll() async {
+  Future<void> stopAll({bool notify = true}) async {
+    _isActive = false;
     _lipSyncTimer?.cancel();
     _countdownTimer?.cancel();
     
@@ -415,14 +494,15 @@ class MockInterviewViewModel extends ChangeNotifier {
       isSpeaking: false,
     );
     _phonemeNotifier.value = 'X';
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   @override
-
   void dispose() {
+    _isActive = false;
     _lipSyncTimer?.cancel();
     _countdownTimer?.cancel();
+    _phonemeNotifier.dispose();
     _ttsService.dispose();
     _speechService.dispose();
     super.dispose();

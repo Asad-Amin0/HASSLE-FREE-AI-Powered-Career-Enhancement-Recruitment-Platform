@@ -31,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _education = "";
   String _experience = "";
   List<String> _skills = [];
+  List<String> _certificates = [];
   bool _isLoading = true;
   StreamSubscription? _resumeSubscription;
   StreamSubscription? _appsSubscription;
@@ -89,6 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _overallScore = (data['overallScore'] as num?)?.toDouble() ?? 0.0;
         _breakdown = data['breakdown'] ?? {};
         _userBadges = List<String>.from(data['badges'] ?? []);
+        _certificates = List<String>.from(data['certificates'] ?? []);
         _isLoading = false;
       });
     }
@@ -108,6 +110,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _overallScore = (data['overallScore'] as num?)?.toDouble() ?? 0.0;
               _breakdown = data['breakdown'] ?? {};
               _userBadges = List<String>.from(data['badges'] ?? []);
+              _certificates = List<String>.from(data['certificates'] ?? []);
             }
             _isLoading = false;
           });
@@ -210,6 +213,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           _buildSkillsSection(),
+          const SizedBox(height: 32),
+          Text(
+            'Certifications',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: _headingColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildCertificatesSection(),
           const SizedBox(height: 40),
         ],
       ),
@@ -675,6 +689,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'Skills',
                       (_breakdown['skills'] ?? 0.0).toString(),
                     ),
+                    const SizedBox(width: 32),
+                    _buildScorePart(
+                      'Certs',
+                      (_breakdown['certificates'] ?? 0.0).toString(),
+                    ),
                   ],
                 ),
               ],
@@ -847,45 +866,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildCertificatesSection() {
+    final certsToShow =
+        _certificates.isEmpty ? ['No certifications added'] : _certificates;
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children:
+          certsToShow.map((c) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: _cardBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _cardBorder),
+                boxShadow:
+                    widget.isDarkMode
+                        ? null
+                        : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 5,
+                          ),
+                        ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    c,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: _textColor,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (_certificates.isNotEmpty) ...[
+                    const SizedBox(width: 10),
+                    const Icon(
+                      Icons.card_membership,
+                      color: Color(0xFF6366F1),
+                      size: 16,
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }).toList(),
+    );
+  }
+
   void _showEditProfileDialog() {
     final nameController = TextEditingController(text: _name);
     final locationController = TextEditingController(text: _location);
+    final educationController = TextEditingController(text: _education);
+    final experienceController = TextEditingController(text: _experience);
+    final skillsController = TextEditingController(text: _skills.join(', '));
+    final certificatesController =
+        TextEditingController(text: _certificates.join(', '));
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor:
+            widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
         title: Text(
-          'Edit Profile',
-          style: TextStyle(color: _textColor),
+          'Update Professional Profile',
+          style: TextStyle(
+            color: _headingColor,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              style: TextStyle(color: _textColor),
-              decoration: InputDecoration(
-                labelText: 'Name',
-                labelStyle: TextStyle(color: _mutedText),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: _cardBorder),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildEditField('Name', nameController, Icons.person_outline),
+                const SizedBox(height: 16),
+                _buildEditField(
+                  'Location',
+                  locationController,
+                  Icons.location_on_outlined,
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: locationController,
-              style: TextStyle(color: _textColor),
-              decoration: InputDecoration(
-                labelText: 'Location',
-                labelStyle: TextStyle(color: _mutedText),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: _cardBorder),
+                const SizedBox(height: 16),
+                _buildEditField(
+                  'Education',
+                  educationController,
+                  Icons.school_outlined,
+                  maxLines: 3,
                 ),
-              ),
+                const SizedBox(height: 16),
+                _buildEditField(
+                  'Experience',
+                  experienceController,
+                  Icons.work_outline,
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 16),
+                _buildEditField(
+                  'Skills (comma separated)',
+                  skillsController,
+                  Icons.bolt_outlined,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                _buildEditField(
+                  'Certificates (comma separated)',
+                  certificatesController,
+                  Icons.card_membership_outlined,
+                  maxLines: 2,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -894,19 +989,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              List<String> updatedSkills =
+                  skillsController.text
+                      .split(',')
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList();
+
+              List<String> updatedCerts =
+                  certificatesController.text
+                      .split(',')
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList();
+
               await _resumeService.updateProfile(
                 name: nameController.text,
                 location: locationController.text,
+                education: educationController.text,
+                experience: experienceController.text,
+                skills: updatedSkills,
+                certificates: updatedCerts,
               );
               if (!context.mounted) return;
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6366F1),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEditField(
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      style: TextStyle(color: _headingColor),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: _mutedText, fontSize: 14),
+        prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _cardBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+        ),
+        filled: true,
+        fillColor: widget.isDarkMode
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.grey.shade50,
       ),
     );
   }
