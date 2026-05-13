@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
 import '../services/job_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-
 
 import '../widgets/resume_thematic_viewer.dart';
 import '../widgets/candidate_avatar.dart';
@@ -14,13 +13,13 @@ import '../features/mock_interview/models/interview_session.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 
-
 class EmployerDashboardScreen extends StatefulWidget {
   final bool isDarkMode;
-  const EmployerDashboardScreen({super.key, this.isDarkMode = true});
+  const EmployerDashboardScreen({super.key, this.isDarkMode = false});
 
   @override
-  State<EmployerDashboardScreen> createState() => _EmployerDashboardScreenState();
+  State<EmployerDashboardScreen> createState() =>
+      _EmployerDashboardScreenState();
 }
 
 class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
@@ -28,8 +27,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
 
   Color get _textColor => widget.isDarkMode ? Colors.white : Colors.black87;
   Color get _mutedText => widget.isDarkMode ? Colors.white60 : Colors.black54;
-  Color get _cardBg => widget.isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.white;
-  Color get _cardBorder => widget.isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade300;
+  Color get _cardBg =>
+      widget.isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.white;
+  Color get _cardBorder => widget.isDarkMode
+      ? Colors.white.withValues(alpha: 0.05)
+      : Colors.grey.shade300;
   bool get isDarkMode => widget.isDarkMode;
   late final JobService _jobService;
   late final Stream<Map<String, int>> _statsStream;
@@ -40,7 +42,8 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
   void initState() {
     super.initState();
     _jobService = JobService();
-    _jobService.syncApplicantCounts(); // Ensure UI stays in sync with actual documents
+    _jobService
+        .syncApplicantCounts(); // Ensure UI stays in sync with actual documents
     _statsStream = _jobService.getEmployerStatsStream();
     _jobsStream = _jobService.getEmployerJobsStream();
     _applicantsStream = _jobService.getEmployerAllApplicantsStream();
@@ -94,7 +97,7 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
             builder: (context, snapshot) {
               final stats =
                   snapshot.data ?? {'activeJobs': 0, 'totalApplicants': 0};
-              
+
               return StreamBuilder<List<Map<String, dynamic>>>(
                 stream: _applicantsStream,
                 builder: (context, applicantSnapshot) {
@@ -103,22 +106,36 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                     stream: _jobsStream,
                     builder: (context, jobSnapshot) {
                       final jobs = jobSnapshot.data ?? [];
-                      
+
                       double totalScore = 0;
                       int count = 0;
-                      
+
                       for (var a in applicants) {
                         final resumeData = a['resumeData'] ?? {};
-                        final skills = List<String>.from(resumeData['skills'] ?? []);
+                        final skills = List<String>.from(
+                          resumeData['skills'] ?? [],
+                        );
                         final jobId = a['jobId'];
-                        final job = jobs.firstWhere((j) => j['id'] == jobId, orElse: () => {});
-                        final targetSkills = List<String>.from(job['requiredSkills'] ?? []);
-                        
+                        final job = jobs.firstWhere(
+                          (j) => j['id'] == jobId,
+                          orElse: () => {},
+                        );
+                        final targetSkills = List<String>.from(
+                          job['requiredSkills'] ?? [],
+                        );
+
                         if (targetSkills.isNotEmpty) {
                           int matches = 0;
                           for (var target in targetSkills) {
-                            if (skills.any((s) => s.toLowerCase().contains(target.toLowerCase()) || 
-                                                 target.toLowerCase().contains(s.toLowerCase()))) {
+                            if (skills.any(
+                              (s) =>
+                                  s.toLowerCase().contains(
+                                    target.toLowerCase(),
+                                  ) ||
+                                  target.toLowerCase().contains(
+                                    s.toLowerCase(),
+                                  ),
+                            )) {
                               matches++;
                             }
                           }
@@ -126,9 +143,15 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                           count++;
                         }
                       }
-                      
-                      final avgMatch = count == 0 ? 0 : (totalScore / count).round();
-                      return _buildStatsRow(isMobile, stats, avgMatch: avgMatch);
+
+                      final avgMatch = count == 0
+                          ? 0
+                          : (totalScore / count).round();
+                      return _buildStatsRow(
+                        isMobile,
+                        stats,
+                        avgMatch: avgMatch,
+                      );
                     },
                   );
                 },
@@ -140,7 +163,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
 
           Row(
             children: [
-              const Icon(Icons.work_outline, color: Color(0xFF6366F1), size: 28),
+              const Icon(
+                Icons.work_outline,
+                color: Color(0xFF6366F1),
+                size: 28,
+              ),
               const SizedBox(width: 12),
               Text(
                 'Your Job Postings',
@@ -161,12 +188,6 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-                );
-              }
-              if (snapshot.hasError) {
-                return const Text(
-                  'Error loading jobs',
-                  style: TextStyle(color: Colors.red),
                 );
               }
               final allJobs = snapshot.data ?? [];
@@ -201,52 +222,59 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                   final allApplicants = applicantSnapshot.data ?? [];
 
                   // Matching logic: compare applicant skills with job requirements
-                  List<Map<String, dynamic>> matchedCandidates = allApplicants
-                      .map((a) {
-                        final resumeData = a['resumeData'] ?? {};
-                        final skills = List<String>.from(
-                          resumeData['skills'] ?? [],
-                        );
+                  List<Map<String, dynamic>>
+                  matchedCandidates = allApplicants.map((a) {
+                    final resumeData = a['resumeData'] ?? {};
+                    final skills = List<String>.from(
+                      resumeData['skills'] ?? [],
+                    );
 
-                        final jobId = a['jobId'];
-                        final job = jobs.firstWhere((j) => j['id'] == jobId, orElse: () => {});
-                        final targetSkills = List<String>.from(job['requiredSkills'] ?? []);
+                    final jobId = a['jobId'];
+                    final job = jobs.firstWhere(
+                      (j) => j['id'] == jobId,
+                      orElse: () => {},
+                    );
+                    final targetSkills = List<String>.from(
+                      job['requiredSkills'] ?? [],
+                    );
 
-                        int matches = 0;
-                        for (var target in targetSkills) {
-                          if (skills.any(
-                            (s) => s.toLowerCase().contains(target.toLowerCase()) || 
-                                   target.toLowerCase().contains(s.toLowerCase()),
-                          )) {
-                            matches++;
-                          }
-                        }
-                        double score = targetSkills.isEmpty
-                            ? 100
-                            : (matches / targetSkills.length.clamp(1, 100)) *
-                                  100;
+                    int matches = 0;
+                    for (var target in targetSkills) {
+                      if (skills.any(
+                        (s) =>
+                            s.toLowerCase().contains(target.toLowerCase()) ||
+                            target.toLowerCase().contains(s.toLowerCase()),
+                      )) {
+                        matches++;
+                      }
+                    }
+                    double score = targetSkills.isEmpty
+                        ? 100
+                        : (matches / targetSkills.length.clamp(1, 100)) * 100;
 
-                        return {
-                          ...a,
-                          'name': a['seekerName'],
-                          'jobTitle': a['jobTitle'] ?? 'Unknown Position',
-                          'category': resumeData['category'] ?? 'Professional',
-                          'skills': skills,
-                          'matchScore': score.toStringAsFixed(0),
-                          'profilePictureUrl': resumeData['profilePictureUrl'],
-                          'seekerId': a['seekerId'],
-                        };
-                      })
-                      .toList();
-
+                    return {
+                      ...a,
+                      'name': a['seekerName'],
+                      'jobTitle': a['jobTitle'] ?? 'Unknown Position',
+                      'category': resumeData['category'] ?? 'Professional',
+                      'skills': skills,
+                      'matchScore': score.toStringAsFixed(0),
+                      'profilePictureUrl': resumeData['profilePictureUrl'],
+                      'seekerId': a['seekerId'],
+                      'resumeTheme': job['resumeTheme'] ?? 'Modern',
+                      'resumeColor': job['resumeColor'],
+                    };
+                  }).toList();
 
                   matchedCandidates.sort((a, b) {
-                    final aTime = (a['appliedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-                    final bTime = (b['appliedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+                    final aTime =
+                        (a['appliedAt'] as Timestamp?)?.toDate() ??
+                        DateTime.now();
+                    final bTime =
+                        (b['appliedAt'] as Timestamp?)?.toDate() ??
+                        DateTime.now();
                     return bTime.compareTo(aTime); // Newest first
                   });
-
-
 
                   if (matchedCandidates.isEmpty) {
                     return Container(
@@ -327,139 +355,149 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
           borderRadius: BorderRadius.circular(20),
           child: HoverableCard(
             child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _cardBorder),
-              boxShadow: isDarkMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-            ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          job['title'] ?? 'Job Title',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${job['location'] ?? 'Remote'} • ${job['type'] ?? 'Full-time'}',
-                          style: TextStyle(
-                            color: _mutedText,
-                          ),
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: _cardBg,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _cardBorder),
+                boxShadow: isDarkMode
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
                         ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: job['status'] == 'active'
-                          ? Colors.green.withValues(alpha: 0.1)
-                          : Colors.orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      (job['status']?.toString() ?? 'active').toUpperCase(),
-                      style: TextStyle(
-                        color: job['status'] == 'active'
-                            ? Colors.green
-                            : Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                job['description'] ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _textColor.withValues(alpha: 0.8),
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ...skills
-                      .take(3)
-                      .map(
-                        (s) => Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            s,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _mutedText,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              job['title'] ?? 'Job Title',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _textColor,
+                              ),
                             ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${job['location'] ?? 'Remote'} • ${job['type'] ?? 'Full-time'}',
+                              style: TextStyle(color: _mutedText),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: job['status'] == 'active'
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          (job['status']?.toString() ?? 'active').toUpperCase(),
+                          style: TextStyle(
+                            color: job['status'] == 'active'
+                                ? Colors.green
+                                : Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
                         ),
                       ),
-                  if (skills.length > 3)
-                    Text(
-                      '+${skills.length - 3} more',
-                      style: TextStyle(
-                        color: _mutedText,
-                        fontSize: 12,
-                      ),
-                    ),
-                  const Spacer(),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    job['salaryRange'] ?? '',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF6366F1),
+                    job['description'] ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: _textColor.withValues(alpha: 0.8),
+                      fontSize: 14,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      ...skills
+                          .take(3)
+                          .map(
+                            (s) => Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                s,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _mutedText,
+                                ),
+                              ),
+                            ),
+                          ),
+                      if (skills.length > 3)
+                        Text(
+                          '+${skills.length - 3} more',
+                          style: TextStyle(color: _mutedText, fontSize: 12),
+                        ),
+                      const Spacer(),
+                      Text(
+                        job['salaryRange'] ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF6366F1),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
-    },
-  );
-}
+  }
 
   void _deleteApplicant(String applicationId) async {
     if (applicationId.isEmpty) return;
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: _cardBg,
         title: Text('Remove Application', style: TextStyle(color: _textColor)),
-        content: Text('Are you sure you want to remove this application? The user\'s account will not be deleted.', style: TextStyle(color: _mutedText)),
+        content: Text(
+          'Are you sure you want to remove this application? The user\'s account will not be deleted.',
+          style: TextStyle(color: _mutedText),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
@@ -477,7 +515,9 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
   void _viewApplicantsForJob(BuildContext context, Map<String, dynamic> job) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: widget.isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+      backgroundColor: widget.isDarkMode
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFF1F5F9),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
@@ -562,7 +602,9 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                         'seekerName': applicant['seekerName'] ?? 'Candidate',
                         'seekerEmail': applicant['seekerEmail'] ?? 'N/A',
                         'profilePictureUrl': applicant['profilePictureUrl'],
-                        'resumeData': Map<String, dynamic>.from(resume is Map ? resume : {}),
+                        'resumeData': Map<String, dynamic>.from(
+                          resume is Map ? resume : {},
+                        ),
                       };
 
                       return Container(
@@ -582,12 +624,14 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                                   seekerId: applicant['seekerId'] ?? '',
                                   seekerName: applicant['seekerName'] ?? '?',
                                   radius: 24,
-                                  initialPictureUrl: applicant['profilePictureUrl'],
+                                  initialPictureUrl:
+                                      applicant['profilePictureUrl'],
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         applicant['seekerName'] ?? 'Anonymous',
@@ -599,14 +643,22 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                                       ),
                                       Text(
                                         applicant['seekerEmail'] ?? '',
-                                        style: TextStyle(color: _mutedText, fontSize: 12),
+                                        style: TextStyle(
+                                          color: _mutedText,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                                 IconButton(
-                                  onPressed: () => _deleteApplicant(applicant['id'] ?? ''),
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                  onPressed: () =>
+                                      _deleteApplicant(applicant['id'] ?? ''),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
                                 ),
                               ],
                             ),
@@ -622,30 +674,60 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                                       TextButton.icon(
                                         onPressed: () => showDialog(
                                           context: context,
-                                          builder: (context) => ResumeThematicViewer(
-                                            applicant: applicantFormat,
-                                            theme: 'Modern',
-                                            primaryColor: const Color(0xFF6366F1),
-                                          ),
+                                          builder: (context) =>
+                                              ResumeThematicViewer(
+                                                applicant: applicantFormat,
+                                                theme: 'Modern',
+                                                primaryColor: const Color(
+                                                  0xFF6366F1,
+                                                ),
+                                              ),
                                         ),
-                                        icon: const Icon(Icons.description_outlined, size: 18),
+                                        icon: const Icon(
+                                          Icons.description_outlined,
+                                          size: 18,
+                                        ),
                                         label: const Text('View Profile'),
                                       ),
-                                      if (applicant['interviewResult'] != null) ...[
+                                      if (applicant['interviewResult'] !=
+                                          null) ...[
                                         TextButton.icon(
-                                          onPressed: () => _showInterviewResults(context, applicant),
-                                          icon: const Icon(Icons.analytics_outlined, size: 18, color: Colors.orange),
-                                          label: const Text('Results', style: TextStyle(color: Colors.orange)),
+                                          onPressed: () =>
+                                              _showInterviewResults(
+                                                context,
+                                                applicant,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.analytics_outlined,
+                                            size: 18,
+                                            color: Colors.orange,
+                                          ),
+                                          label: const Text(
+                                            'Results',
+                                            style: TextStyle(
+                                              color: Colors.orange,
+                                            ),
+                                          ),
                                         ),
-                                        if (applicant['interviewResult']['videoUrl'] != null)
+                                        if (applicant['interviewResult']['videoUrl'] !=
+                                            null)
                                           TextButton.icon(
                                             onPressed: () => _showInterviewVideo(
                                               context,
                                               applicant['interviewResult']['videoUrl'],
                                               applicant['seekerName'],
                                             ),
-                                            icon: const Icon(Icons.play_circle_outline, size: 18, color: Colors.blueAccent),
-                                            label: const Text('Watch', style: TextStyle(color: Colors.blueAccent)),
+                                            icon: const Icon(
+                                              Icons.play_circle_outline,
+                                              size: 18,
+                                              color: Colors.blueAccent,
+                                            ),
+                                            label: const Text(
+                                              'Watch',
+                                              style: TextStyle(
+                                                color: Colors.blueAccent,
+                                              ),
+                                            ),
                                           ),
                                       ],
                                     ],
@@ -666,7 +748,6 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
       ),
     );
   }
-
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
     if (isMobile) {
@@ -768,7 +849,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
     );
   }
 
-  Widget _buildStatsRow(bool isMobile, Map<String, int> stats, {int avgMatch = 0}) {
+  Widget _buildStatsRow(
+    bool isMobile,
+    Map<String, int> stats, {
+    int avgMatch = 0,
+  }) {
     if (isMobile) {
       return Column(
         children: [
@@ -867,7 +952,14 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
             color: _cardBg,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: _cardBorder),
-            boxShadow: isDarkMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+            boxShadow: isDarkMode
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                    ),
+                  ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
@@ -881,8 +973,14 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                   height: 80,
                   child: CustomPaint(
                     painter: isBarChart
-                        ? _BarChartPainter(dataPoints, color.withValues(alpha: 0.2))
-                        : _MiniChartPainter(dataPoints, color.withValues(alpha: 0.3)),
+                        ? _BarChartPainter(
+                            dataPoints,
+                            color.withValues(alpha: 0.2),
+                          )
+                        : _MiniChartPainter(
+                            dataPoints,
+                            color.withValues(alpha: 0.3),
+                          ),
                   ),
                 ),
                 Padding(
@@ -901,7 +999,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                             ),
                             child: Icon(icon, color: color, size: 20),
                           ),
-                          Icon(Icons.trending_up, color: color.withValues(alpha: 0.5), size: 16),
+                          Icon(
+                            Icons.trending_up,
+                            color: color.withValues(alpha: 0.5),
+                            size: 16,
+                          ),
                         ],
                       ),
                       const Spacer(),
@@ -935,7 +1037,8 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
   }
 
   Widget _buildBulkActions(List<Map<String, dynamic>> candidates) {
-    bool allSelected = candidates.isNotEmpty &&
+    bool allSelected =
+        candidates.isNotEmpty &&
         candidates.every((c) => _selectedApplicantIds.contains(c['seekerId']));
 
     return Container(
@@ -951,8 +1054,9 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
           Checkbox(
             value: allSelected,
             activeColor: const Color(0xFF6366F1),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
             onChanged: (val) {
               setState(() {
                 if (val == true) {
@@ -976,14 +1080,16 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
           const Spacer(),
           if (_selectedApplicantIds.isNotEmpty)
             ElevatedButton.icon(
-            onPressed: () => _handleBulkDownload(candidates),
+              onPressed: () => _handleBulkDownload(candidates),
               icon: const Icon(Icons.download_for_offline, size: 18),
               label: Text('Download (${_selectedApplicantIds.length})'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
                 foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1052,182 +1158,258 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                           radius: 20,
                           initialPictureUrl: c['profilePictureUrl'],
                         ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: TextStyle(
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _textColor,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                'Applied for: $role',
+                                style: TextStyle(
+                                  color: _mutedText,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            score,
+                            style: const TextStyle(
+                              color: Colors.green,
                               fontWeight: FontWeight.bold,
-                              color: _textColor,
-                              fontSize: 16,
+                              fontSize: 14,
                             ),
                           ),
-                          Text(
-                            'Applied for: $role',
-                            style: TextStyle(
-                              color: _mutedText,
-                              fontSize: 13,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: skills
+                          .take(4)
+                          .map(
+                            (s) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                s,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _mutedText,
+                                ),
+                              ),
                             ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          SizedBox(
+                            width: isMobile
+                                ? (MediaQuery.of(context).size.width - 76) / 2
+                                : 120,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                final applicantFormat = {
+                                  'seekerName': c['seekerName'] ?? name,
+                                  'seekerEmail':
+                                      c['seekerEmail'] ??
+                                      'Contact information hidden',
+                                  'resumeData': c['resumeData'] ?? {},
+                                  'profilePictureUrl': c['profilePictureUrl'],
+                                  'seekerId': c['seekerId'],
+                                };
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => ResumeThematicViewer(
+                                    applicant: applicantFormat,
+                                    theme: 'Modern',
+                                    primaryColor: const Color(0xFF6366F1),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.visibility_outlined,
+                                size: 16,
+                              ),
+                              label: const Text(
+                                'Profile',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(
+                                  0xFF6366F1,
+                                ).withValues(alpha: 0.15),
+                                foregroundColor: const Color(0xFF818CF8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: isMobile
+                                ? (MediaQuery.of(context).size.width - 76) / 2
+                                : 120,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _handleDownload(c),
+                              icon: const Icon(
+                                Icons.file_download_outlined,
+                                size: 16,
+                              ),
+                              label: const Text(
+                                'Resume',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(
+                                  0xFF4F46E5,
+                                ).withValues(alpha: 0.1),
+                                foregroundColor: const Color(0xFF818CF8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                                side: BorderSide(
+                                  color: const Color(
+                                    0xFF4F46E5,
+                                  ).withValues(alpha: 0.2),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (c['hasInterview'] == true &&
+                              c['videoUrl'] != null)
+                            SizedBox(
+                              width: isMobile
+                                  ? (MediaQuery.of(context).size.width - 76) / 2
+                                  : 120,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showInterviewVideo(
+                                  context,
+                                  c['videoUrl'],
+                                  c['seekerName'] ?? c['name'],
+                                ),
+                                icon: const Icon(
+                                  Icons.play_circle_outline,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'Watch',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  foregroundColor: Colors.orange,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  elevation: 0,
+                                  side: BorderSide(
+                                    color: Colors.orange.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (c['interviewResult'] != null)
+                            SizedBox(
+                              width: isMobile
+                                  ? (MediaQuery.of(context).size.width - 76) / 2
+                                  : 120,
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _showInterviewResults(context, c),
+                                icon: const Icon(
+                                  Icons.analytics_outlined,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'Results',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.teal.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  foregroundColor: Colors.teal,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  elevation: 0,
+                                  side: BorderSide(
+                                    color: Colors.teal.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          IconButton(
+                            onPressed: () => _handleDeleteApplication(c['id']),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.redAccent,
+                              size: 20,
+                            ),
+                            tooltip: 'Delete Application',
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        score,
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: skills
-                      .take(4)
-                      .map(
-                        (s) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            s,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _mutedText,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          final applicantFormat = {
-                            'seekerName': c['seekerName'] ?? name,
-                            'seekerEmail':
-                                c['seekerEmail'] ?? 'Contact information hidden',
-                            'resumeData': c['resumeData'] ?? {},
-                            'profilePictureUrl': c['profilePictureUrl'],
-                            'seekerId': c['seekerId'],
-                          };
-                          showDialog(
-                            context: context,
-                            builder: (context) => ResumeThematicViewer(
-                              applicant: applicantFormat,
-                              theme: 'Modern',
-                              primaryColor: const Color(0xFF6366F1),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.visibility_outlined, size: 18),
-                        label: const Text('View Profile'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
-                          foregroundColor: const Color(0xFF818CF8),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _handleDownload(c),
-                        icon: const Icon(Icons.file_download_outlined, size: 18),
-                        label: const Text('Resume'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.1),
-                          foregroundColor: const Color(0xFF818CF8),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                          side: BorderSide(color: const Color(0xFF4F46E5).withValues(alpha: 0.2)),
-                        ),
-                      ),
-                    ),
-                    if (c['hasInterview'] == true && c['videoUrl'] != null) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _showInterviewVideo(context, c['videoUrl'], c['seekerName'] ?? c['name']),
-
-                          icon: const Icon(Icons.play_circle_outline, size: 18),
-                          label: const Text('Watch'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange.withValues(alpha: 0.1),
-                            foregroundColor: Colors.orange,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                            side: BorderSide(color: Colors.orange.withValues(alpha: 0.2)),
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (c['interviewResult'] != null) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _showInterviewResults(context, c),
-                          icon: const Icon(Icons.analytics_outlined, size: 18),
-                          label: const Text('Results'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal.withValues(alpha: 0.1),
-                            foregroundColor: Colors.teal,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                            side: BorderSide(color: Colors.teal.withValues(alpha: 0.2)),
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(width: 10),
-                    IconButton(
-                      onPressed: () => _handleDeleteApplication(c['id']),
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                      tooltip: 'Delete Application',
-                    ),
-                  ],
-                ),
-
-
-              ],
-            ),
-          ),
-          );
-        }),
-      ],
-    );
-  }
+              ),
+            );
+          }),
+        ],
+      );
+    }
 
     // Web – full DataTable
     return Column(
@@ -1310,8 +1492,9 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
           Checkbox(
             value: isSelected,
             activeColor: const Color(0xFF6366F1),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
             onChanged: (val) {
               setState(() {
                 if (val == true) {
@@ -1365,15 +1548,14 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                      color: isDarkMode
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       s,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _mutedText,
-                      ),
+                      style: TextStyle(fontSize: 11, color: _mutedText),
                     ),
                   ),
                 )
@@ -1409,11 +1591,17 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                   onPressed: () {
                     final rawResumeData = candidate['resumeData'] ?? {};
                     // Ensure we have a proper Map<String, dynamic> to avoid type errors on Web
-                    final Map<String, dynamic> resumeData = Map<String, dynamic>.from(rawResumeData is Map ? rawResumeData : {});
-                    
+                    final Map<String, dynamic> resumeData =
+                        Map<String, dynamic>.from(
+                          rawResumeData is Map ? rawResumeData : {},
+                        );
+
                     final Map<String, dynamic> applicantFormat = {
                       'seekerId': candidate['seekerId'] ?? '',
-                      'seekerName': candidate['seekerName'] ?? candidate['name'] ?? 'Candidate',
+                      'seekerName':
+                          candidate['seekerName'] ??
+                          candidate['name'] ??
+                          'Candidate',
                       'seekerEmail': candidate['seekerEmail'] ?? 'N/A',
                       'profilePictureUrl': candidate['profilePictureUrl'],
                       'resumeData': resumeData,
@@ -1438,7 +1626,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                 ),
                 TextButton.icon(
                   onPressed: () => _handleDownload(candidate),
-                  icon: const Icon(Icons.file_download_outlined, size: 18, color: Color(0xFF818CF8)),
+                  icon: const Icon(
+                    Icons.file_download_outlined,
+                    size: 18,
+                    color: Color(0xFF818CF8),
+                  ),
                   label: const Text(
                     'Resume',
                     style: TextStyle(
@@ -1447,10 +1639,19 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                     ),
                   ),
                 ),
-                if (candidate['hasInterview'] == true && candidate['videoUrl'] != null)
+                if (candidate['hasInterview'] == true &&
+                    candidate['videoUrl'] != null)
                   TextButton.icon(
-                    onPressed: () => _showInterviewVideo(context, candidate['videoUrl'], candidate['seekerName'] ?? candidate['name']),
-                    icon: const Icon(Icons.play_circle_outline, size: 18, color: Colors.orange),
+                    onPressed: () => _showInterviewVideo(
+                      context,
+                      candidate['videoUrl'],
+                      candidate['seekerName'] ?? candidate['name'],
+                    ),
+                    icon: const Icon(
+                      Icons.play_circle_outline,
+                      size: 18,
+                      color: Colors.orange,
+                    ),
                     label: const Text(
                       'Watch',
                       style: TextStyle(
@@ -1462,7 +1663,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                 if (candidate['interviewResult'] != null)
                   TextButton.icon(
                     onPressed: () => _showInterviewResults(context, candidate),
-                    icon: const Icon(Icons.analytics_outlined, size: 18, color: Colors.teal),
+                    icon: const Icon(
+                      Icons.analytics_outlined,
+                      size: 18,
+                      color: Colors.teal,
+                    ),
                     label: const Text(
                       'Results',
                       style: TextStyle(
@@ -1473,7 +1678,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
                   ),
                 IconButton(
                   onPressed: () => _handleDeleteApplication(candidate['id']),
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                    size: 20,
+                  ),
                   tooltip: 'Delete Application',
                 ),
               ],
@@ -1482,13 +1691,11 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
         ),
       ],
     );
-
   }
-
 
   void _handleDownload(Map<String, dynamic> candidate) async {
     final name = candidate['name'] ?? 'Candidate';
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -1518,12 +1725,16 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
         email: candidate['seekerEmail'] ?? 'N/A',
         resumeData: candidate['resumeData'] ?? {},
         seekerId: candidate['seekerId'],
+        theme: candidate['resumeTheme'] ?? 'Modern',
+        primaryColor: _getPdfColor(candidate),
       );
     } catch (e) {
       debugPrint('PDF generation error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to generate PDF. Please restart the app.')),
+          const SnackBar(
+            content: Text('Failed to generate PDF. Please restart the app.'),
+          ),
         );
       }
     }
@@ -1535,15 +1746,26 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: widget.isDarkMode
+            ? const Color(0xFF1E293B)
+            : Colors.white,
 
         title: Text('Delete Application?', style: TextStyle(color: _textColor)),
-        content: Text('Are you sure you want to remove this application? The user\'s account will not be deleted.', style: TextStyle(color: _mutedText)),
+        content: Text(
+          'Are you sure you want to remove this application? The user\'s account will not be deleted.',
+          style: TextStyle(color: _mutedText),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -1552,21 +1774,25 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
     if (confirm == true) {
       final success = await _jobService.deleteApplication(applicationId);
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Application removed')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Application removed')));
       }
     }
   }
 
   void _handleBulkDownload(List<Map<String, dynamic>> candidates) async {
-    final selectedCandidates = candidates.where((c) => _selectedApplicantIds.contains(c['seekerId'])).toList();
-    
+    final selectedCandidates = candidates
+        .where((c) => _selectedApplicantIds.contains(c['seekerId']))
+        .toList();
+
     if (selectedCandidates.isEmpty) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Starting bulk download of ${selectedCandidates.length} resumes...'),
+        content: Text(
+          'Starting bulk download of ${selectedCandidates.length} resumes...',
+        ),
         backgroundColor: const Color(0xFF6366F1),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
@@ -1578,13 +1804,16 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
       // Trigger individual downloads for each candidate
       for (var candidate in selectedCandidates) {
         count++;
-        final name = candidate['seekerName'] ?? candidate['name'] ?? 'Candidate';
-        
+        final name =
+            candidate['seekerName'] ?? candidate['name'] ?? 'Candidate';
+
         // Update snackbar to show progress
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Downloading ($count/${selectedCandidates.length}): $name'),
+              content: Text(
+                'Downloading ($count/${selectedCandidates.length}): $name',
+              ),
               backgroundColor: const Color(0xFF6366F1),
               duration: const Duration(milliseconds: 1500),
               behavior: SnackBarBehavior.floating,
@@ -1599,20 +1828,24 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
           email: candidate['seekerEmail'] ?? 'N/A',
           resumeData: resumeData,
           seekerId: candidate['seekerId'],
+          theme: candidate['resumeTheme'] ?? 'Modern',
+          primaryColor: _getPdfColor(candidate),
         );
-        
+
         // Very long delay (3.0s) to bypass strict browser popup/print blockers
         // This is necessary on Web to ensure multiple files can be triggered sequentially.
         await Future.delayed(const Duration(milliseconds: 3000));
       }
-      
+
       if (mounted) {
         setState(() {
           _selectedApplicantIds.clear();
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Bulk download process completed. Please check your browser downloads.'),
+            content: Text(
+              'Bulk download process completed. Please check your browser downloads.',
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -1622,13 +1855,20 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
       debugPrint('Bulk PDF error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error during bulk download. Please check your browser popup settings.')),
+          const SnackBar(
+            content: Text(
+              'Error during bulk download. Please check your browser popup settings.',
+            ),
+          ),
         );
       }
     }
   }
 
-  void _showInterviewResults(BuildContext context, Map<String, dynamic> candidate) {
+  void _showInterviewResults(
+    BuildContext context,
+    Map<String, dynamic> candidate,
+  ) {
     if (candidate['interviewResult'] == null) return;
 
     try {
@@ -1653,11 +1893,29 @@ class _EmployerDashboardScreenState extends State<EmployerDashboardScreen> {
     }
   }
 
-  void _showInterviewVideo(BuildContext context, String videoUrl, String? seekerName) {
+  void _showInterviewVideo(
+    BuildContext context,
+    String videoUrl,
+    String? seekerName,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => _VideoPlayerDialog(videoUrl: videoUrl, seekerName: seekerName),
+      builder: (context) =>
+          _VideoPlayerDialog(videoUrl: videoUrl, seekerName: seekerName),
     );
+  }
+
+  PdfColor _getPdfColor(Map<String, dynamic> candidate) {
+    if (candidate['resumeColor'] != null) {
+      try {
+        final hexStr = candidate['resumeColor'].toString().replaceAll('#', '');
+        final colorInt = int.parse(hexStr, radix: 16);
+        return PdfColor.fromInt(colorInt);
+      } catch (e) {
+        debugPrint('Error parsing resume color: $e');
+      }
+    }
+    return PdfColors.indigo;
   }
 }
 
@@ -1681,7 +1939,9 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
   }
 
   Future<void> _initializePlayer() async {
-    _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    _videoPlayerController = VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
+    );
     await _videoPlayerController.initialize();
     _chewieController = ChewieController(
       videoPlayerController: _videoPlayerController,
@@ -1721,7 +1981,11 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
               children: [
                 Text(
                   'Interview: ${widget.seekerName ?? "Seeker"}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -1735,14 +1999,20 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
               maxHeight: MediaQuery.of(context).size.height * 0.7,
               maxWidth: MediaQuery.of(context).size.width * 0.8,
             ),
-            child: _chewieController != null && _chewieController!.videoPlayerController.value.isInitialized
+            child:
+                _chewieController != null &&
+                    _chewieController!.videoPlayerController.value.isInitialized
                 ? AspectRatio(
                     aspectRatio: _videoPlayerController.value.aspectRatio,
                     child: Chewie(controller: _chewieController!),
                   )
                 : const SizedBox(
                     height: 300,
-                    child: Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF6366F1),
+                      ),
+                    ),
                   ),
           ),
           const SizedBox(height: 16),
@@ -1776,7 +2046,8 @@ class _MiniChartPainter extends CustomPainter {
 
     for (int i = 0; i < dataPoints.length; i++) {
       final double x = i * stepX;
-      final double y = size.height - ((dataPoints[i] - minY) / range * size.height);
+      final double y =
+          size.height - ((dataPoints[i] - minY) / range * size.height);
       if (i == 0) {
         path.moveTo(x, y);
       } else {
@@ -1822,10 +2093,11 @@ class _BarChartPainter extends CustomPainter {
     final double barWidth = size.width / (dataPoints.length * 1.5);
     final double spacing = barWidth / 2;
     final double maxY = dataPoints.reduce((a, b) => a > b ? a : b);
+    final double safeMaxY = maxY == 0 ? 1 : maxY;
 
     for (int i = 0; i < dataPoints.length; i++) {
       final double x = i * (barWidth + spacing) + spacing;
-      final double barHeight = (dataPoints[i] / maxY) * size.height;
+      final double barHeight = (dataPoints[i] / safeMaxY) * size.height;
       final double y = size.height - barHeight;
 
       canvas.drawRRect(
@@ -1841,4 +2113,3 @@ class _BarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

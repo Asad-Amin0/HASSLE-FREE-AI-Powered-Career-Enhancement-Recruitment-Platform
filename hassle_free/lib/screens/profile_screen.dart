@@ -9,7 +9,7 @@ import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
-  const ProfileScreen({super.key, this.isDarkMode = true});
+  const ProfileScreen({super.key, this.isDarkMode = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();

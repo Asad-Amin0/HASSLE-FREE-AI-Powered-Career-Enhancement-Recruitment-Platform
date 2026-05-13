@@ -10,7 +10,7 @@ import 'package:chewie/chewie.dart';
 
 class EmployerJobsScreen extends StatelessWidget {
   final bool isDarkMode;
-  const EmployerJobsScreen({super.key, this.isDarkMode = true});
+  const EmployerJobsScreen({super.key, this.isDarkMode = false});
 
   Color get _textColor => isDarkMode ? Colors.white : Colors.black87;
   Color get _mutedText => isDarkMode ? Colors.white60 : Colors.black54;

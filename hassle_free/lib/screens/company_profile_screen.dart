@@ -6,7 +6,7 @@ import 'login_screen.dart';
 
 class CompanyProfileScreen extends StatefulWidget {
   final bool isDarkMode;
-  const CompanyProfileScreen({super.key, this.isDarkMode = true});
+  const CompanyProfileScreen({super.key, this.isDarkMode = false});
 
   @override
   State<CompanyProfileScreen> createState() => _CompanyProfileScreenState();

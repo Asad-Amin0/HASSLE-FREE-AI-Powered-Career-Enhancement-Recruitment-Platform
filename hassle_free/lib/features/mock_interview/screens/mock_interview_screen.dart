@@ -33,7 +33,7 @@ class MockInterviewScreen extends StatefulWidget {
     required this.userId,
     required this.jobRole,
     required this.skills,
-    this.isDarkMode = true,
+    this.isDarkMode = false,
     this.jobId,
     this.jobDescription = "",
     this.resumeData,
@@ -480,13 +480,14 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> with WidgetsB
               builder: (context, box) {
                 final bool isSmall = box.maxWidth < 600;
                 return AspectRatio(
-                  aspectRatio: isSmall ? 1 / 1.2 : 16 / 6,
+                  aspectRatio: isSmall ? 1 / 1.5 : 16 / 6,
                   child: isSmall 
                     ? Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(child: _buildAvatar(vm)),
-                          const Gap(12),
-                          Expanded(child: _buildCameraPreview()),
+                          Expanded(flex: 3, child: _buildAvatar(vm)),
+                          const Gap(8),
+                          Expanded(flex: 2, child: _buildCameraPreview()),
                         ],
                       )
                     : Row(
@@ -720,7 +721,7 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> with WidgetsB
       builder: (context, data, _) {
         return Avatar3DWidget(avatarState: data.$1, phonemeNotifier: data.$2);
       },
-    ).animate().scale(duration: 500.ms, curve: Curves.elasticOut);
+    );
   }
 
   Widget _buildProgressBar(MockInterviewViewModel vm) {

@@ -11,6 +11,7 @@ import 'profile_screen.dart';
 import 'package:provider/provider.dart';
 import '../features/mock_interview/screens/mock_interview_screen.dart';
 import '../features/mock_interview/viewmodels/mock_interview_viewmodel.dart';
+import '../providers/theme_provider.dart';
 
 import 'company_profile_screen.dart';
 import 'login_screen.dart';
@@ -42,7 +43,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
   String _userCategory = "Software Engineer";
 
   bool _showNotifications = false;
-  bool _isDarkMode = true;
+  bool get _isDarkMode => context.watch<ThemeProvider>().isDarkMode;
   String? _profilePictureUrl;
   int _totalEmployerApplicants = 0;
   List<Map<String, dynamic>> _employerApplicants = [];
@@ -1157,7 +1158,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
             ? [
                 IconButton(
                   onPressed: () {
-                    setState(() => _isDarkMode = !_isDarkMode);
+                    context.read<ThemeProvider>().toggleTheme();
                   },
                   icon: Icon(
                     _isDarkMode
@@ -1432,18 +1433,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
               // Theme Toggle Button
               GestureDetector(
                 onTap: () {
-                  setState(() {
-                    _isDarkMode = !_isDarkMode;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(_isDarkMode ? 'Dark Mode' : 'Light Mode'),
-                      duration: const Duration(seconds: 1),
-                      backgroundColor: _isDarkMode
-                          ? const Color(0xFF1E293B)
-                          : Colors.white,
-                    ),
-                  );
+                  context.read<ThemeProvider>().toggleTheme();
                 },
                 child: CircleAvatar(
                   backgroundColor: _isDarkMode

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'job_service.dart';
 
 class ResumeService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -46,6 +47,22 @@ class ResumeService {
             'badges': badges,
             'timestamp': FieldValue.serverTimestamp(),
           });
+      
+      // Sync to all existing applications
+      await JobService().updateUserApplicationsResume(user.uid, {
+        'filename': filename,
+        'category': category,
+        'name': name,
+        'skills': skills,
+        'experience': experience,
+        'education': education,
+        'certificates': certificates,
+        'textPreview': textPreview,
+        'overallScore': overallScore,
+        'breakdown': breakdown,
+        'badges': badges,
+      });
+
       debugPrint('Resume analysis saved to Firestore for user: ${user.uid}');
     } catch (e) {
       debugPrint('Error saving resume analysis: $e');
@@ -183,6 +200,12 @@ class ResumeService {
             .collection('resumes')
             .doc('latest')
             .update(updateData);
+        
+        // Fetch full updated data to sync applications
+        final updatedResume = await getLatestResumeAnalysis();
+        if (updatedResume != null) {
+          await JobService().updateUserApplicationsResume(user.uid, updatedResume);
+        }
       }
       debugPrint('Profile, Certificates and Score updated successfully');
     } catch (e) {

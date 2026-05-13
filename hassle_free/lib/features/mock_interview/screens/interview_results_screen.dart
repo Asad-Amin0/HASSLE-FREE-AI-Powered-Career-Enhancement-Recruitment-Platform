@@ -17,7 +17,7 @@ class InterviewResultsScreen extends StatelessWidget {
   const InterviewResultsScreen({
     super.key,
     required this.session,
-    this.isDarkMode = true,
+    this.isDarkMode = false,
     this.onExit,
     this.onRestart,
   });

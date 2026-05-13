@@ -7,7 +7,7 @@ import '../services/resume_service.dart';
 class ResumeScreen extends StatefulWidget {
   final Function(String)? onNameExtracted;
   final bool isDarkMode;
-  const ResumeScreen({super.key, this.onNameExtracted, this.isDarkMode = true});
+  const ResumeScreen({super.key, this.onNameExtracted, this.isDarkMode = false});
 
   @override
   State<ResumeScreen> createState() => _ResumeScreenState();
@@ -479,11 +479,12 @@ class _ResumeScreenState extends State<ResumeScreen> {
                         ),
                       ),
                     ),
-                    TextButton(
+                    TextButton.icon(
                       onPressed: () => setState(() => _isAnalyzed = false),
-                      child: const Text(
+                      icon: Icon(Icons.refresh, color: _iconColor, size: 18),
+                      label: Text(
                         "Reset",
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: _iconColor, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],

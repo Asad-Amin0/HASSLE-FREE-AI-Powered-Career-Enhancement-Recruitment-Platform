@@ -11,7 +11,7 @@ import 'dart:async';
 class JobsScreen extends StatefulWidget {
   final bool isDarkMode;
   final String? initialSearchQuery;
-  const JobsScreen({super.key, this.isDarkMode = true, this.initialSearchQuery});
+  const JobsScreen({super.key, this.isDarkMode = false, this.initialSearchQuery});
 
   @override
   State<JobsScreen> createState() => _JobsScreenState();
@@ -277,7 +277,7 @@ class _JobsScreenState extends State<JobsScreen> {
               _buildFilterDropdown(
                 'Salary Range',
                 _selectedSalaryRange,
-                ['All', '\$500', '\$1000', '\$2000', '\$3000'],
+                ['All', '50,000 PKR', '100,000 PKR', '150,000 PKR', '200,000 PKR'],
                 (val) => setDialogState(() => _selectedSalaryRange = val!),
               ),
             ],
@@ -458,7 +458,7 @@ class _JobsScreenState extends State<JobsScreen> {
     } catch (_) {}
 
     return Container(
-      height: 250, // Added fixed height for mobile consistency
+      constraints: const BoxConstraints(minHeight: 220), // Use constraints instead of fixed height
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -502,7 +502,8 @@ class _JobsScreenState extends State<JobsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           job['title'],
@@ -563,34 +564,53 @@ class _JobsScreenState extends State<JobsScreen> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: _getScoreColor(score).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      '$score%',
-                      style: TextStyle(
-                        color: _getScoreColor(score),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+              if (MediaQuery.of(context).size.width > 400)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getScoreColor(score).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '$score%',
+                        style: TextStyle(
+                          color: _getScoreColor(score),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Match',
-                      style: TextStyle(color: _mutedText, fontSize: 10),
-                    ),
-                  ],
+                      Text(
+                        'Match',
+                        style: TextStyle(color: _mutedText, fontSize: 10),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
+          if (MediaQuery.of(context).size.width <= 400) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getScoreColor(score).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Match Score: $score%',
+                style: TextStyle(
+                  color: _getScoreColor(score),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
           const Spacer(),
           Row(
             children: [

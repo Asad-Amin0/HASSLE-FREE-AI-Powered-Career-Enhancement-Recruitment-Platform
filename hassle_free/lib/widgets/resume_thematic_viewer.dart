@@ -67,6 +67,10 @@ class ResumeThematicViewer extends StatelessWidget {
                 _buildSidebarSection('DETAILS', resume),
                 const SizedBox(height: 30),
                 _buildSidebarSection('SKILLS', resume),
+                const SizedBox(height: 30),
+                _buildSidebarSection('CERTIFICATES', resume),
+                const SizedBox(height: 30),
+                _buildBadgesSidebar(resume),
               ],
             ),
           ),
@@ -109,8 +113,38 @@ class ResumeThematicViewer extends StatelessWidget {
               child: Text(s, style: const TextStyle(color: Colors.white70, fontSize: 11)),
             )).toList(),
           )
+        else if (title == 'CERTIFICATES')
+           Text(
+            (List<String>.from(resume['certificates'] ?? [])).join(', '),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          )
         else
            Text(applicant['seekerEmail'] ?? 'N/A', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildBadgesSidebar(Map<String, dynamic> resume) {
+    final badges = List<String>.from(resume['badges'] ?? []);
+    if (badges.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('BADGES', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 14)),
+        const Divider(color: Colors.white24, thickness: 1, height: 20),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: badges.map((b) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+            ),
+            child: Text(b, style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+          )).toList(),
+        ),
       ],
     );
   }
@@ -226,6 +260,14 @@ class ResumeThematicViewer extends StatelessWidget {
                         )
                         .toList(),
                   ),
+                  const SizedBox(height: 32),
+                  _buildCreativeCard(
+                    'Certificates',
+                    (List<String>.from(resume['certificates'] ?? [])).join('\n'),
+                    Colors.purpleAccent,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildBadgesCreative(resume),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -284,6 +326,41 @@ class ResumeThematicViewer extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBadgesCreative(Map<String, dynamic> resume) {
+    final badges = List<String>.from(resume['badges'] ?? []);
+    if (badges.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Achievements',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: badges.map((b) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.stars, color: Colors.amber, size: 18),
+                const SizedBox(width: 8),
+                Text(b, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+              ],
+            ),
+          )).toList(),
+        ),
+      ],
     );
   }
 
@@ -366,6 +443,25 @@ class ResumeThematicViewer extends StatelessWidget {
                       )
                       .toList(),
                 ),
+                const SizedBox(height: 32),
+                Text(
+                  'CERTIFICATES',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ... (List<String>.from(resume['certificates'] ?? [])).map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(
+                    '• $c',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                )),
+                const SizedBox(height: 32),
+                _buildBadgesModern(resume),
               ],
             ),
           ),
@@ -429,6 +525,38 @@ class ResumeThematicViewer extends StatelessWidget {
     );
   }
 
+  Widget _buildBadgesModern(Map<String, dynamic> resume) {
+    final badges = List<String>.from(resume['badges'] ?? []);
+    if (badges.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'AWARDS',
+          style: TextStyle(
+            color: primaryColor,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: badges.map((b) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+            ),
+            child: Text(b, style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+          )).toList(),
+        ),
+      ],
+    );
+  }
+
   // ─── ATS Optimized Theme ──────────────────────────────────────────────────
   Widget _buildATSTheme(BuildContext context, Map<String, dynamic> resume) {
     return Scaffold(
@@ -449,7 +577,10 @@ class ResumeThematicViewer extends StatelessWidget {
             const SizedBox(height: 24),
             _buildATSViewerSection('EXPERIENCE', resume['experience'] ?? 'N/A'),
             _buildATSViewerSection('EDUCATION', resume['education'] ?? 'N/A'),
+            _buildATSViewerSection('CERTIFICATES', (List<String>.from(resume['certificates'] ?? [])).join(', ')),
             _buildATSViewerSection('SKILLS', (List<String>.from(resume['skills'] ?? [])).join(', ')),
+            if ((List<String>.from(resume['badges'] ?? [])).isNotEmpty)
+              _buildATSViewerSection('VERIFIED BADGES', (List<String>.from(resume['badges'] ?? [])).join(' | ')),
           ],
         ),
       ),

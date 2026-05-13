@@ -317,8 +317,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildTextField(
                 controller: _salaryController,
                 label: 'Salary Range',
-                hint: 'e.g. \$80k - \$100k or PKR 200k - 300k',
-                icon: Icons.attach_money,
+                hint: 'e.g. 50,000 PKR - 100,000 PKR or 1.5 - 2.5 Lacs',
+                icon: Icons.payments_outlined,
               ),
               const SizedBox(height: 32),
               

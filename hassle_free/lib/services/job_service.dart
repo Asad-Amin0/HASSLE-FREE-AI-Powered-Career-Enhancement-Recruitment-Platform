@@ -581,4 +581,28 @@ class JobService {
     }
   }
 
+  // ─── Update all applications with latest resume data ──────────────────────
+  Future<void> updateUserApplicationsResume(String userId, Map<String, dynamic> resumeData) async {
+    try {
+      final snapshot = await _db
+          .collection('applications')
+          .where('seekerId', isEqualTo: userId)
+          .get();
+
+      if (snapshot.docs.isEmpty) return;
+
+      final batch = _db.batch();
+      for (var doc in snapshot.docs) {
+        batch.update(doc.reference, {
+          'resumeData': resumeData,
+          'seekerName': resumeData['name'] ?? doc.data()['seekerName'],
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      debugPrint('Updated ${snapshot.docs.length} applications with latest resume for user $userId');
+    } catch (e) {
+      debugPrint('Error syncing resume to applications: $e');
+    }
+  }
 }
