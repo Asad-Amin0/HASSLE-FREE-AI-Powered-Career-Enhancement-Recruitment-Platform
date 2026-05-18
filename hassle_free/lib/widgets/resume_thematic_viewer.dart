@@ -35,65 +35,90 @@ class ResumeThematicViewer extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> resume,
   ) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Row(
+    bool isMobile = MediaQuery.of(context).size.width < 700;
+
+    final sidebarContent = Container(
+      width: isMobile ? double.infinity : 250,
+      color: primaryColor,
+      padding: EdgeInsets.all(isMobile ? 24 : 32),
+      child: Column(
         children: [
-          Container(
-            width: 250,
-            color: primaryColor,
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
-                CandidateAvatar(
-                  seekerId: applicant['seekerId'] ?? '',
-                  seekerName: applicant['seekerName'] ?? '?',
-                  radius: 60,
-                  initialPictureUrl: applicant['profilePictureUrl'] ?? resume['profilePictureUrl'],
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  applicant['seekerName']?.toUpperCase() ?? 'NAME',
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                Text(
-                  applicant['seekerEmail'] ?? '',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
-                _buildSidebarSection('DETAILS', resume),
-                const SizedBox(height: 30),
-                _buildSidebarSection('SKILLS', resume),
-                const SizedBox(height: 30),
-                _buildSidebarSection('CERTIFICATES', resume),
-                const SizedBox(height: 30),
-                _buildBadgesSidebar(resume),
-              ],
-            ),
+          const SizedBox(height: 20),
+          CandidateAvatar(
+            seekerId: applicant['seekerId'] ?? '',
+            seekerName: applicant['seekerName'] ?? '?',
+            radius: 60,
+            initialPictureUrl: applicant['profilePictureUrl'] ?? resume['profilePictureUrl'],
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(48),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   _buildSectionTitle('PROFILE', primaryColor),
-                   Text(resume['summary'] ?? 'N/A', style: const TextStyle(color: Colors.black87, height: 1.6)),
-                   const SizedBox(height: 40),
-                   _buildSectionTitle('EXPERIENCE', primaryColor),
-                   Text(resume['experience'] ?? 'N/A', style: const TextStyle(color: Colors.black87, height: 1.6)),
-                   const SizedBox(height: 40),
-                   _buildSectionTitle('EDUCATION', primaryColor),
-                   Text(resume['education'] ?? 'N/A', style: const TextStyle(color: Colors.black87, height: 1.6)),
-                ],
-              ),
-            ),
+          const SizedBox(height: 24),
+          Text(
+            applicant['seekerName']?.toUpperCase() ?? 'NAME',
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
           ),
+          Text(
+            applicant['seekerEmail'] ?? '',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          _buildSidebarSection('DETAILS', resume),
+          const SizedBox(height: 24),
+          _buildSidebarSection('SKILLS', resume),
+          const SizedBox(height: 24),
+          _buildSidebarSection('CERTIFICATES', resume),
+          const SizedBox(height: 24),
+          _buildBadgesSidebar(resume),
         ],
       ),
+    );
+
+    final mainContent = Padding(
+      padding: EdgeInsets.all(isMobile ? 24 : 48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+           _buildSectionTitle('PROFILE', primaryColor),
+           Text(resume['summary'] ?? 'N/A', style: const TextStyle(color: Colors.black87, height: 1.6)),
+           SizedBox(height: isMobile ? 32 : 40),
+           _buildSectionTitle('EXPERIENCE', primaryColor),
+           Text(resume['experience'] ?? 'N/A', style: const TextStyle(color: Colors.black87, height: 1.6)),
+           SizedBox(height: isMobile ? 32 : 40),
+           _buildSectionTitle('EDUCATION', primaryColor),
+           Text(resume['education'] ?? 'N/A', style: const TextStyle(color: Colors.black87, height: 1.6)),
+        ],
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: isMobile
+          ? AppBar(
+              backgroundColor: primaryColor,
+              elevation: 0,
+              leading: const BackButton(color: Colors.white),
+              title: const Text('Professional Resume', style: TextStyle(color: Colors.white)),
+            )
+          : null,
+      body: isMobile
+          ? SingleChildScrollView(
+              child: Column(
+                children: [
+                  sidebarContent,
+                  mainContent,
+                ],
+              ),
+            )
+          : Row(
+              children: [
+                SingleChildScrollView(child: sidebarContent),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: mainContent,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -366,6 +391,121 @@ class ResumeThematicViewer extends StatelessWidget {
 
   // ─── Modern Theme ──────────────────────────────────────────────────────────
   Widget _buildModernTheme(BuildContext context, Map<String, dynamic> resume) {
+    bool isMobile = MediaQuery.of(context).size.width < 700;
+
+    final sidebarContent = Container(
+      width: isMobile ? double.infinity : 300,
+      color: const Color(0xFF1E293B),
+      padding: EdgeInsets.all(isMobile ? 24 : 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Column(
+              children: [
+                CandidateAvatar(
+                  seekerId: applicant['seekerId'] ?? '',
+                  seekerName: applicant['seekerName'] ?? '?',
+                  radius: isMobile ? 60 : 50,
+                  initialPictureUrl:
+                      applicant['profilePictureUrl'] ??
+                      resume['profilePictureUrl'],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  applicant['seekerName'] ?? '',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  applicant['seekerEmail'] ?? '',
+                  style: const TextStyle(color: Colors.white60, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'CORE SKILLS',
+            style: TextStyle(
+              color: primaryColor,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: (List<String>.from(resume['skills'] ?? []))
+                .map(
+                  (s) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      s,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'CERTIFICATES',
+            style: TextStyle(
+              color: primaryColor,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ... (List<String>.from(resume['certificates'] ?? [])).map((c) => Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text(
+              '• $c',
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          )),
+          const SizedBox(height: 24),
+          _buildBadgesModern(resume),
+        ],
+      ),
+    );
+
+    final mainContent = Padding(
+      padding: EdgeInsets.all(isMobile ? 24 : 48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildModernSection(
+            'PROFESSIONAL EXPERIENCE',
+            resume['experience'] ?? 'N/A',
+          ),
+          SizedBox(height: isMobile ? 32 : 48),
+          _buildModernSection(
+            'EDUCATION',
+            resume['education'] ?? 'N/A',
+          ),
+        ],
+      ),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -377,116 +517,25 @@ class ResumeThematicViewer extends StatelessWidget {
           style: TextStyle(color: Colors.white),
         ),
       ),
-      body: Row(
-        children: [
-          // Sidebar
-          Container(
-            width: 300,
-            color: const Color(0xFF1E293B),
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CandidateAvatar(
-                  seekerId: applicant['seekerId'] ?? '',
-                  seekerName: applicant['seekerName'] ?? '?',
-                  radius: 50,
-                  initialPictureUrl:
-                      applicant['profilePictureUrl'] ??
-                      resume['profilePictureUrl'],
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  applicant['seekerName'] ?? '',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  applicant['seekerEmail'] ?? '',
-                  style: const TextStyle(color: Colors.white60, fontSize: 13),
-                ),
-                const SizedBox(height: 48),
-                Text(
-                  'CORE SKILLS',
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: (List<String>.from(resume['skills'] ?? []))
-                      .map(
-                        (s) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            s,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  'CERTIFICATES',
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ... (List<String>.from(resume['certificates'] ?? [])).map((c) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
-                    '• $c',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                )),
-                const SizedBox(height: 32),
-                _buildBadgesModern(resume),
-              ],
-            ),
-          ),
-          // Main Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(48),
+      body: isMobile
+          ? SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildModernSection(
-                    'PROFESSIONAL EXPERIENCE',
-                    resume['experience'] ?? 'N/A',
-                  ),
-                  const SizedBox(height: 48),
-                  _buildModernSection(
-                    'EDUCATION',
-                    resume['education'] ?? 'N/A',
-                  ),
+                  sidebarContent,
+                  mainContent,
                 ],
               ),
+            )
+          : Row(
+              children: [
+                SingleChildScrollView(child: sidebarContent),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: mainContent,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 

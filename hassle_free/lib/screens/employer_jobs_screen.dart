@@ -359,7 +359,7 @@ class EmployerJobsScreen extends StatelessWidget {
     return HoverableCard(
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isWebGrid ? 24 : 16),
         decoration: BoxDecoration(
           color: _cardBg,
           borderRadius: BorderRadius.circular(20),
@@ -409,12 +409,16 @@ class EmployerJobsScreen extends StatelessWidget {
                             size: 14,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            expiryText,
-                            style: const TextStyle(
-                              color: Colors.orangeAccent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              expiryText,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Colors.orangeAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -422,11 +426,13 @@ class EmployerJobsScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isWebGrid ? 12 : 8,
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
@@ -438,26 +444,31 @@ class EmployerJobsScreen extends StatelessWidget {
                         style: TextStyle(
                           color: statusColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: isWebGrid ? 12 : 11,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: isWebGrid ? 8 : 4),
                     IconButton(
+                      padding: isWebGrid ? const EdgeInsets.all(8) : EdgeInsets.zero,
+                      constraints: isWebGrid ? null : const BoxConstraints(),
                       onPressed: () => _editJob(context, job),
                       icon: Icon(
                         Icons.edit_outlined,
                         color: _mutedText,
-                        size: 20,
+                        size: isWebGrid ? 20 : 18,
                       ),
                       tooltip: 'Edit Job',
                     ),
+                    SizedBox(width: isWebGrid ? 0 : 4),
                     IconButton(
+                      padding: isWebGrid ? const EdgeInsets.all(8) : EdgeInsets.zero,
+                      constraints: isWebGrid ? null : const BoxConstraints(),
                       onPressed: () => _deleteJob(context, job['id']),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.delete_outline,
                         color: Colors.redAccent,
-                        size: 20,
+                        size: isWebGrid ? 20 : 18,
                       ),
                       tooltip: 'Delete Job',
                     ),
@@ -465,10 +476,10 @@ class EmployerJobsScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isWebGrid ? 16 : 12),
             Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.people_outline,
                   color: Colors.indigoAccent,
                   size: 16,
@@ -491,7 +502,7 @@ class EmployerJobsScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isWebGrid ? 16 : 12),
             Text(
               job['description'] ?? '',
               maxLines: 2,
@@ -501,42 +512,50 @@ class EmployerJobsScreen extends StatelessWidget {
                 fontSize: 14,
               ),
             ),
-            isWebGrid ? const Spacer() : const SizedBox(height: 16),
+            isWebGrid ? const Spacer() : SizedBox(height: isWebGrid ? 16 : 12),
             Row(
               children: [
-                ...skills
-                    .take(3)
-                    .map(
-                      (s) => Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ...skills
+                          .take(isWebGrid ? 3 : 2)
+                          .map(
+                            (s) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                s,
+                                style: TextStyle(fontSize: 11, color: _mutedText),
+                              ),
+                            ),
+                          ),
+                      if (skills.length > (isWebGrid ? 3 : 2))
+                        Text(
+                          '+${skills.length - (isWebGrid ? 3 : 2)}',
+                          style: TextStyle(color: _mutedText, fontSize: 11),
                         ),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : Colors.black.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          s,
-                          style: TextStyle(fontSize: 12, color: _mutedText),
-                        ),
-                      ),
-                    ),
-                if (skills.length > 3)
-                  Text(
-                    '+${skills.length - 3}',
-                    style: TextStyle(color: _mutedText, fontSize: 12),
+                    ],
                   ),
-                const Spacer(),
+                ),
+                const SizedBox(width: 8),
                 Text(
                   job['salaryRange'] ?? '',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF6366F1),
-                    fontSize: 16,
+                    color: const Color(0xFF6366F1),
+                    fontSize: isWebGrid ? 16 : 14,
                   ),
                 ),
               ],
@@ -726,43 +745,101 @@ class EmployerJobsScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Match Score: ${_calculateMatchScore(skills, List<String>.from(job['requiredSkills'] ?? []))}%',
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              if (applicant['hasInterview'] == true)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.stars, color: Colors.orange, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Interview Score: ${(applicant['overallScore'] * 100).round()}%',
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+          MediaQuery.of(context).size.width < 600
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Match Score: ${_calculateMatchScore(skills, List<String>.from(job['requiredSkills'] ?? []))}%',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (applicant['hasInterview'] == true) ...[
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.stars, color: Colors.orange, size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Interview: ${(applicant['overallScore'] * 100).round()}%',
+                                  style: const TextStyle(
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Change Status:',
+                          style: TextStyle(
+                            color: _mutedText,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        _buildStatusPicker(context, applicant),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Match Score: ${_calculateMatchScore(skills, List<String>.from(job['requiredSkills'] ?? []))}%',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (applicant['hasInterview'] == true)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.stars, color: Colors.orange, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Interview Score: ${(applicant['overallScore'] * 100).round()}%',
+                              style: const TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    _buildStatusPicker(context, applicant),
+                  ],
                 ),
-              _buildStatusPicker(context, applicant),
-            ],
-          ),
 
           const SizedBox(height: 8),
           Wrap(
