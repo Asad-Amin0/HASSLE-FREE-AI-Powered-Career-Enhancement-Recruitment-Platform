@@ -6,7 +6,7 @@ import fetch from "node-fetch"; // npm install node-fetch@2
 import { Configuration, OpenAIApi } from "openai";
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(bodyParser.json());
 
 app.get("/", (req, res) => {
