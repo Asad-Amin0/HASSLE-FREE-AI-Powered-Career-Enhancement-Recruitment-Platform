@@ -82,7 +82,7 @@ class _ResumeScreenState extends State<ResumeScreen> {
       try {
         var request = http.MultipartRequest(
           'POST',
-          Uri.parse('http://localhost:5002/api/upload-resume'),
+          Uri.parse('http://YOUR_EC2_IP:5002/api/upload-resume'),
         );
         if (file.bytes != null) {
           request.files.add(
