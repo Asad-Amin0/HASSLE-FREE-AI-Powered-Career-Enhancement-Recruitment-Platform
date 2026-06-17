@@ -7,7 +7,7 @@ import '../models/interview_result.dart';
 class AnswerEvaluationService {
   // Updated to support multiple platforms (Web, Android Emulator, Desktop)
  static String get _backendUrl {
-    return 'http://3.89.241.113:3000';
+    return 'http://54.234.158.151:3000';
   }
 
   Future<InterviewResult> evaluate({
