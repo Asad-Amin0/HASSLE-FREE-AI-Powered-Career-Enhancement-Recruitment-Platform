@@ -8,7 +8,7 @@ import '../models/interview_question.dart';
 class RagQuestionService {
   // Updated to support multiple platforms (Web, Android Emulator, Desktop)
  static String get _backendUrl {
-    return 'http://3.89.241.113:3000';
+    return 'http://54.234.158.151:3000';
   }
 
   // ─── Built-in Professional Question Bank (RAG fallback) ───────────────────
