@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import fetch from "node-fetch"; // npm install node-fetch@2
-import { Configuration, OpenAIApi } from "openai";
+import OpenAI from "openai";
 
 const app = express();
 app.use(cors({ origin: '*' }));
@@ -15,7 +15,10 @@ app.get("/", (req, res) => {
 
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // set in .env
-const openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_API_KEY }));
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
+});
 
 function buildQuestionPrompt({ jobRole, skills, count }) {
   return `
@@ -42,12 +45,12 @@ app.post("/generateInterviewQuestions", async (req, res) => {
   try {
     const { jobRole, skills, count = 7 } = req.body;
     const prompt = buildQuestionPrompt({ jobRole, skills, count });
-    const response = await openai.createChatCompletion({
-      model: "gpt-4o-mini",
-      messages: [{ role: "system", content: prompt }],
+    const response = await openai.chat.completions.create({
+      model: "gemini-1.5-flash",
+      messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
     });
-    let content = response.data.choices[0].message.content;
+    let content = response.choices[0].message.content;
     // Strip markdown code blocks if present
     content = content.replace(/```json|```/g, "").trim();
     const json = JSON.parse(content);
@@ -89,12 +92,12 @@ Candidate answer: ${userAnswer}
 Provide a JSON with {"score":0-1,"matchedPhrases":[],"missedPhrases":[],"feedback":"...","encouragement":"...","passed":true|false}`;
     let result;
     try {
-      const ai = await openai.createChatCompletion({
-        model: "gpt-4o-mini",
-        messages: [{ role: "system", content: prompt }],
+      const ai = await openai.chat.completions.create({
+        model: "gemini-1.5-flash",
+        messages: [{ role: "user", content: prompt }],
         temperature: 0.2,
       });
-      let content = ai.data.choices[0].message.content;
+      let content = ai.choices[0].message.content;
       // Strip markdown code blocks if present
       content = content.replace(/```json|```/g, "").trim();
       result = JSON.parse(content);
