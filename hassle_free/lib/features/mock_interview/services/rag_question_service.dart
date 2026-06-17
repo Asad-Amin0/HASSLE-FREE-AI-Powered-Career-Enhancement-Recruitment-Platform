@@ -7,13 +7,8 @@ import '../models/interview_question.dart';
 /// or falls back to built-in professional question bank.
 class RagQuestionService {
   // Updated to support multiple platforms (Web, Android Emulator, Desktop)
-  static String get _backendUrl {
-    if (kIsWeb) return 'http://localhost:3000';
-    // defaultTargetPlatform is from foundation.dart
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:3000'; // Android emulator access to host localhost
-    }
-    return 'http://localhost:3000'; // Windows/macOS/iOS or real device IP
+ static String get _backendUrl {
+    return 'http://YOUR_EC2_IP:3000';
   }
 
   // ─── Built-in Professional Question Bank (RAG fallback) ───────────────────
